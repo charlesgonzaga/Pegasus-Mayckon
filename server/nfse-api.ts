@@ -180,8 +180,8 @@ export async function fetchNfseDocuments(
   cnpj: string,
   startNsu: number = 1
 ): Promise<NfseApiResponse> {
-  const MAX_RETRIES = 3;
-  const BASE_DELAY_MS = 3000; // 3 seconds base delay for retry
+  const MAX_RETRIES = 5;
+  const BASE_DELAY_MS = 5000; // 5 seconds base delay for retry (will be 5s, 10s, 20s, 40s, 80s)
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -291,113 +291,99 @@ export function parseNfseXml(xml: string, clienteCnpj: string): Partial<ParsedNf
     const tomaXml = tomaMatch[1];
     const cnpjMatch = tomaXml.match(/<CNPJ>([^<]*)<\/CNPJ>/i);
     const nomeMatch = tomaXml.match(/<xNome>([^<]*)<\/xNome>/i);
-    tomadorCnpj = cnpjMatch?.[1] ?? "";
-    tomadorNome = nomeMatch?.[1] ?? "";
-  }
-
-  // Extract emitente name
-  const emitMatch = xml.match(/<emit>([\s\S]*?)<\/emit>/i);
-  let emitenteNome = "";
-  if (emitMatch) {
-    const nomeMatch = emitMatch[1].match(/<xNome>([^<]*)<\/xNome>/i);
-    emitenteNome = nomeMatch?.[1] ?? "";
+    tomadorCnpj = cnpjMatch?.[1] || "";
+    tomadorNome = nomeMatch?.[1] || "";
   }
 
   return {
-    numeroNota: getTag("nNFSe") || getTag("nDPS"),
-    serie: getTag("serie"),
+    numeroNota: getTag("nNF") || getTag("nNFSe") || "",
+    serie: getTag("serie") || "",
     emitenteCnpj,
-    emitenteNome,
+    emitenteNome: getTag("xNome") || "",
     tomadorCnpj,
     tomadorNome,
-    valorServico: getTag("vServ") || getTag("vServPrest") || undefined,
-    valorLiquido: getTag("vLiq") || undefined,
-    valorRetencao: getTag("vTotalRet") || undefined,
-    codigoServico: getTag("cTribNac") || getTag("cServ"),
-    descricaoServico: getTag("xDescServ"),
+    valorServico: getTag("vServ") || "",
+    valorLiquido: getTag("vLiq") || "",
+    valorRetencao: getTag("vRet") || "",
+    codigoServico: getTag("cServ") || "",
+    descricaoServico: getTag("xServ") || "",
     dataEmissao,
     dataCompetencia,
-    municipioPrestacao: getTag("xLocPrestacao") || getTag("xLocIncid"),
-    ufPrestacao: getTag("UF"),
-    direcao: direcao as "emitida" | "recebida",
+    municipioPrestacao: getTag("cMun") || "",
+    ufPrestacao: getTag("UF") || "",
+    direcao,
   };
 }
 
 /**
- * Download all documents for a client, starting from a given NSU
- * Returns parsed documents ready for database insertion
- * 
- * @param options.competenciaInicio - Optional: filter by competência start (YYYY-MM format)
- * @param options.competenciaFim - Optional: filter by competência end (YYYY-MM format)
- * @param options.smartStartNsu - NSU inteligente: pular diretamente para o NSU mais próximo do período
- * @param options.isCancelled - Function to check if download was cancelled
- * @param options.onPageInfo - Callback com info de paginação (páginas consultadas, total docs na página)
+ * Download all documents from NFSe API with pagination
  */
 export async function downloadAllDocuments(
   certPem: string,
   keyPem: string,
   cnpj: string,
   startNsu: number = 1,
-  onProgress?: (downloaded: number) => void,
-  options?: {
-    competenciaInicio?: string; // YYYY-MM
-    competenciaFim?: string;    // YYYY-MM
-    dataInicio?: string;        // YYYY-MM-DD (filtro exato por dia)
-    dataFim?: string;           // YYYY-MM-DD (filtro exato por dia)
-    smartStartNsu?: number;     // NSU inteligente para pular ao período
+  onProgress?: (count: number) => Promise<void>,
+  periodFilter?: {
+    competenciaInicio?: string;
+    competenciaFim?: string;
+    dataInicio?: string;
+    dataFim?: string;
+    smartStartNsu?: number;
     isCancelled?: () => Promise<boolean>;
-    onPageInfo?: (info: { pagesQueried: number; docsInPage: number; currentNsu: number }) => void;
   }
 ): Promise<ParsedNfse[]> {
   const allDocs: ParsedNfse[] = [];
-  // Usar smartStartNsu se fornecido (pula direto ao período), senão usa startNsu normal
-  let currentNsu = options?.smartStartNsu && options.smartStartNsu > 0 ? options.smartStartNsu : startNsu;
-  let hasMore = true;
+  let currentNsu = startNsu;
   let pagesQueried = 0;
-  // Contador de páginas consecutivas sem nenhuma nota no período (para early termination)
+  const MAX_EMPTY_PAGES = 3;
   let consecutivePagesOutOfRange = 0;
-  const MAX_EMPTY_PAGES = 3; // Parar após 3 páginas consecutivas sem notas no período
 
-  // Parse period filters
-  let periodoInicio: Date | null = null;
-  let periodoFim: Date | null = null;
-  if (options?.dataInicio) {
-    const [y, m, d] = options.dataInicio.split("-").map(Number);
-    periodoInicio = new Date(y, m - 1, d, 0, 0, 0);
-  } else if (options?.competenciaInicio) {
-    const [y, m] = options.competenciaInicio.split("-").map(Number);
-    periodoInicio = new Date(y, m - 1, 1);
-  }
-  if (options?.dataFim) {
-    const [y, m, d] = options.dataFim.split("-").map(Number);
-    periodoFim = new Date(y, m - 1, d, 23, 59, 59);
-  } else if (options?.competenciaFim) {
-    const [y, m] = options.competenciaFim.split("-").map(Number);
-    periodoFim = new Date(y, m, 0, 23, 59, 59);
-  }
+  const hasPeriodFilter = periodFilter && (periodFilter.competenciaInicio || periodFilter.dataInicio);
+  let periodoInicio: Date | undefined;
+  let periodoFim: Date | undefined;
 
-  const hasPeriodFilter = !!(periodoInicio || periodoFim);
-
-  while (hasMore) {
-    // Check cancellation
-    if (options?.isCancelled) {
-      const cancelled = await options.isCancelled();
-      if (cancelled) break;
+  if (hasPeriodFilter) {
+    if (periodFilter.dataInicio) {
+      periodoInicio = new Date(periodFilter.dataInicio);
+      periodoFim = periodFilter.dataFim ? new Date(periodFilter.dataFim) : undefined;
+    } else if (periodFilter.competenciaInicio) {
+      periodoInicio = new Date(periodFilter.competenciaInicio + "-01T00:00:00");
+      if (periodFilter.competenciaFim) {
+        const [ano, mes] = periodFilter.competenciaFim.split("-");
+        const ultimoDia = new Date(parseInt(ano), parseInt(mes), 0).getDate();
+        periodoFim = new Date(periodFilter.competenciaFim + `-${ultimoDia}T23:59:59`);
+      } else {
+        const ultimoDia = new Date(periodoInicio.getFullYear(), periodoInicio.getMonth() + 1, 0).getDate();
+        periodoFim = new Date(periodoInicio.getFullYear(), periodoInicio.getMonth(), ultimoDia, 23, 59, 59);
+      }
     }
+  }
 
-    const response = await fetchNfseDocuments(certPem, keyPem, cnpj, currentNsu);
-    pagesQueried++;
+  if (periodFilter?.smartStartNsu && periodFilter.smartStartNsu > 0) {
+    currentNsu = periodFilter.smartStartNsu;
+  }
 
-    if (response.StatusProcessamento !== "DOCUMENTOS_LOCALIZADOS" || !response.LoteDFe?.length) {
-      hasMore = false;
+  while (true) {
+    const wasCancelled = periodFilter?.isCancelled ? await periodFilter.isCancelled() : false;
+    if (wasCancelled) {
+      console.log("[API NFSe] Download cancelado pelo usuário");
       break;
     }
 
-    options?.onPageInfo?.({
-      pagesQueried,
-      docsInPage: response.LoteDFe.length,
-      currentNsu,
-    });
+    pagesQueried++;
+    const response = await fetchNfseDocuments(certPem, keyPem, cnpj, currentNsu);
+
+    if (response.StatusProcessamento === "NENHUM_DOCUMENTO_LOCALIZADO" || response.LoteDFe.length === 0) {
+      consecutivePagesOutOfRange++;
+      if (consecutivePagesOutOfRange >= MAX_EMPTY_PAGES) {
+        console.log(`[API NFSe] ${MAX_EMPTY_PAGES} páginas vazias consecutivas - parando consulta`);
+        break;
+      }
+      await new Promise(r => setTimeout(r, 300));
+      currentNsu = Math.max(currentNsu + 1, currentNsu);
+      continue;
+    }
 
     let docsAddedThisPage = 0;
     let allDocsAfterPeriod = true; // Track if ALL docs in this page are after the period
@@ -480,11 +466,19 @@ export function getDanfseUrl(chaveAcesso: string): string {
 /**
  * Download DANFSe PDF via mTLS using the client certificate
  * Returns the PDF as a Buffer, or null if not available
+ * 
+ * Retry strategy: aggressive backoff for network errors and rate limiting
+ * - Network errors (ECONNRESET, ETIMEDOUT, etc): retry with exponential backoff
+ * - HTTP 503/429: retry with exponential backoff
+ * - HTTP 404: fail immediately (PDF not available)
+ * - Invalid signature: fail immediately (not a valid PDF)
  */
 export async function fetchDanfsePdf(
   certPem: string,
   keyPem: string,
-  chaveAcesso: string
+  chaveAcesso: string,
+  retryCount: number = 0,
+  maxRetries: number = 5
 ): Promise<Buffer | null> {
   const url = `${DANFSE_API_BASE}/${chaveAcesso}`;
   const agent = createMtlsAgent(certPem, keyPem);
@@ -492,38 +486,96 @@ export async function fetchDanfsePdf(
   return new Promise((resolve) => {
     const req = https.get(url, {
       agent,
-      headers: { "Accept": "application/pdf" },
+      headers: { 
+        "Accept": "application/pdf",
+        "User-Agent": "Pegasus-NFSe/1.0"
+      },
     }, (res) => {
       if (res.statusCode !== 200) {
-        // DANFSe may not be available for all notes
-        console.log(`DANFSe not available for ${chaveAcesso}: HTTP ${res.statusCode}`);
-        res.resume(); // consume response
-        resolve(null);
+        const statusMsg = `HTTP ${res.statusCode}`;
+        const contentType = res.headers["content-type"] || "unknown";
+        const retryInfo = retryCount > 0 ? ` [Retry ${retryCount}/${maxRetries}]` : "";
+        console.warn(`[PDF] ${chaveAcesso}: ${statusMsg} (${contentType})${retryInfo}`);
+        res.resume();
+        
+        // HTTP 404: PDF nao existe, nao fazer retry
+        if (res.statusCode === 404) {
+          console.warn(`[PDF] ${chaveAcesso}: PDF nao disponivel no Portal Nacional (404)`);
+          resolve(null);
+          return;
+        }
+        
+        // HTTP 503/429: Retry com backoff exponencial
+        if ((res.statusCode === 503 || res.statusCode === 429) && retryCount < maxRetries) {
+          const delayMs = 2000 * Math.pow(2, retryCount); // 2s, 4s, 8s, 16s, 32s
+          console.log(`[PDF] ${chaveAcesso}: ${statusMsg} - aguardando ${delayMs}ms antes de retry ${retryCount + 1}/${maxRetries}`);
+          setTimeout(() => {
+            fetchDanfsePdf(certPem, keyPem, chaveAcesso, retryCount + 1, maxRetries).then(resolve);
+          }, delayMs);
+        } else {
+          resolve(null);
+        }
         return;
       }
 
       const chunks: Buffer[] = [];
-      res.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      let totalSize = 0;
+      const maxSize = 50 * 1024 * 1024;
+      
+      res.on("data", (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize > maxSize) {
+          req.destroy();
+          console.error(`[PDF] ${chaveAcesso}: Response too large`);
+          resolve(null);
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      });
+      
       res.on("end", () => {
         const pdfBuffer = Buffer.concat(chunks);
-        // Verify it's actually a PDF (starts with %PDF)
         if (pdfBuffer.length > 4 && pdfBuffer.toString("utf-8", 0, 4) === "%PDF") {
+          console.log(`[PDF] OK ${chaveAcesso}: ${pdfBuffer.length} bytes`);
           resolve(pdfBuffer);
         } else {
-          console.log(`DANFSe response for ${chaveAcesso} is not a valid PDF`);
+          console.warn(`[PDF] ${chaveAcesso}: Invalid signature (${pdfBuffer.length} bytes)`);
           resolve(null);
         }
       });
     });
 
-    req.on("error", (err) => {
-      console.error(`Error fetching DANFSe for ${chaveAcesso}:`, err.message);
-      resolve(null);
+    req.on("error", (err: any) => {
+      const retryInfo = retryCount > 0 ? ` [Retry ${retryCount}/${maxRetries}]` : "";
+      console.error(`[PDF] ${chaveAcesso}: ${err.code} - ${err.message}${retryInfo}`);
+      
+      // Network errors: retry com backoff exponencial
+      if (retryCount < maxRetries && ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH"].includes(err.code)) {
+        const delayMs = 2000 * Math.pow(2, retryCount); // 2s, 4s, 8s, 16s, 32s
+        console.log(`[PDF] ${chaveAcesso}: Erro de rede ${err.code} - aguardando ${delayMs}ms antes de retry ${retryCount + 1}/${maxRetries}`);
+        setTimeout(() => {
+          fetchDanfsePdf(certPem, keyPem, chaveAcesso, retryCount + 1, maxRetries).then(resolve);
+        }, delayMs);
+      } else {
+        resolve(null);
+      }
     });
-    req.setTimeout(15000, () => {
+    
+    req.setTimeout(30000, () => {
       req.destroy();
-      console.log(`DANFSe timeout for ${chaveAcesso}`);
-      resolve(null);
+      const retryInfo = retryCount > 0 ? ` [Retry ${retryCount}/${maxRetries}]` : "";
+      console.warn(`[PDF] ${chaveAcesso}: Timeout${retryInfo}`);
+      
+      // Timeout: retry com backoff exponencial
+      if (retryCount < maxRetries) {
+        const delayMs = 2000 * Math.pow(2, retryCount); // 2s, 4s, 8s, 16s, 32s
+        console.log(`[PDF] ${chaveAcesso}: Timeout - aguardando ${delayMs}ms antes de retry ${retryCount + 1}/${maxRetries}`);
+        setTimeout(() => {
+          fetchDanfsePdf(certPem, keyPem, chaveAcesso, retryCount + 1, maxRetries).then(resolve);
+        }, delayMs);
+      } else {
+        resolve(null);
+      }
     });
   });
 }

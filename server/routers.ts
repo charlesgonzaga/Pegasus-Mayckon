@@ -12,7 +12,7 @@ import { extractPfxCertAndKey, downloadAllDocuments, decodeXml, getDanfseUrl, fe
 import { storagePut } from "./storage";
 import { runDownloadEngine, getDownloadConfig, getCircuitBreaker, type DownloadTask } from "./download-engine";
 import { cteRouter } from "./cte-routers";
-import bcrypt from "bcryptjs";
+// import bcrypt from "bcryptjs"; // Removido: usar senhas simples
 import { nanoid } from "nanoid";
 import { sdk } from "./_core/sdk";
 import { notas, certificados, clientes, contabilidades, downloadLogs, agendamentos, planos } from "../drizzle/schema";
@@ -353,23 +353,29 @@ export async function processClienteDownload(
         }
       }
       await db.updateDownloadLog(logId!, { etapa: `Salvando nota ${jaExistem + i + 1}/${totalDocs}...` });
-      await db.upsertNota({
-        clienteId: cliente.id, contabilidadeId: contabId,
-        chaveAcesso: doc.chaveAcesso, nsu: doc.nsu, numeroNota: doc.numeroNota, serie: doc.serie,
-        tipoDocumento: doc.tipoDocumento, tipoEvento: doc.tipoEvento,
-        direcao: doc.direcao, status: doc.status,
-        emitenteCnpj: doc.emitenteCnpj, emitenteNome: doc.emitenteNome,
-        tomadorCnpj: doc.tomadorCnpj, tomadorNome: doc.tomadorNome,
-        valorServico: doc.valorServico, valorLiquido: doc.valorLiquido, valorRetencao: doc.valorRetencao,
-        codigoServico: doc.codigoServico, descricaoServico: doc.descricaoServico,
-        dataEmissao: doc.dataEmissao, dataCompetencia: doc.dataCompetencia,
-        municipioPrestacao: doc.municipioPrestacao, ufPrestacao: doc.ufPrestacao,
-        xmlOriginal: doc.xmlOriginal,
-        ...(danfsePdfUrl ? { danfsePdfUrl, danfsePdfKey } : {}),
-      });
-      contXml++;
-      notasNovas++;
-      await db.updateDownloadLog(logId!, { progresso: notasNovas, totalXml: contXml + jaExistem, totalPdf: contPdf, etapa: `Processando ${notasNovas}/${totalDocs} nota(s)...` });
+      try {
+        await db.upsertNota({
+          clienteId: cliente.id, contabilidadeId: contabId,
+          chaveAcesso: doc.chaveAcesso, nsu: doc.nsu, numeroNota: doc.numeroNota || "", serie: doc.serie || "",
+          tipoDocumento: doc.tipoDocumento, tipoEvento: doc.tipoEvento || null,
+          direcao: doc.direcao || "emitida", status: doc.status || "valida",
+          emitenteCnpj: doc.emitenteCnpj || "", emitenteNome: doc.emitenteNome || "",
+          tomadorCnpj: doc.tomadorCnpj || "", tomadorNome: doc.tomadorNome || "",
+          valorServico: doc.valorServico || "0", valorLiquido: doc.valorLiquido || "0", valorRetencao: doc.valorRetencao || "0",
+          codigoServico: doc.codigoServico || "", descricaoServico: doc.descricaoServico || "",
+          dataEmissao: doc.dataEmissao || new Date(), dataCompetencia: doc.dataCompetencia || new Date(),
+          municipioPrestacao: doc.municipioPrestacao || "", ufPrestacao: doc.ufPrestacao || "",
+          xmlOriginal: doc.xmlOriginal || "",
+          ...(danfsePdfUrl ? { danfsePdfUrl, danfsePdfKey } : {}),
+        });
+        contXml++;
+        notasNovas++;
+        await db.updateDownloadLog(logId!, { progresso: notasNovas, totalXml: contXml + jaExistem, totalPdf: contPdf, etapa: `Processando ${notasNovas}/${totalDocs} nota(s)...` });
+      } catch (e: any) {
+        console.error(`[Erro ao Salvar] Nota ${doc.chaveAcesso}: ${e.message}`);
+        console.error(`[Erro ao Salvar] Dados da nota:`, JSON.stringify(doc, null, 2));
+        throw new Error(`Falha ao salvar nota ${doc.chaveAcesso}: ${e.message}`);
+      }
     }
     if (baixarPdf && pdfPend.length > 0) {
       for (let tent = 1; tent <= maxTent; tent++) {
@@ -403,6 +409,50 @@ export async function processClienteDownload(
       }
     }
     contErrosPdf = baixarPdf ? pdfPend.length : 0;
+    
+    // VALIDAÇÃO CRÍTICA: Garantir que XMLs e PDFs estão em quantidade igual
+    const totalXmlFinal = contXml + jaExistem;
+    const totalPdfFinal = contPdf;
+    const divergencia = baixarPdf ? Math.abs(totalXmlFinal - totalPdfFinal) : 0;
+    
+    if (baixarPdf && divergencia > 0) {
+      console.warn(`[Validação] ${cliente.razaoSocial}: DIVERGÊNCIA DETECTADA - ${totalXmlFinal} XMLs vs ${totalPdfFinal} PDFs (diferença: ${divergencia})`);
+      console.warn(`[Validação] Tentando novamente os ${pdfPend.length} PDFs faltantes com retry agressivo...`);
+      
+      // Retry agressivo final: até 3 tentativas adicionais com delay maior
+      for (let finalRetry = 1; finalRetry <= 3 && pdfPend.length > 0; finalRetry++) {
+        await db.updateDownloadLog(logId!, { etapa: `Retry final ${finalRetry}/3: ${pdfPend.length} PDF(s) faltando...` });
+        await new Promise(r => setTimeout(r, 3000 * finalRetry)); // 3s, 6s, 9s
+        
+        const ainda: typeof pdfPend = [];
+        for (const item of pdfPend) {
+          try {
+            const pdfBuffer = await fetchDanfsePdf(certInfo.cert, certInfo.key, item.doc.chaveAcesso, 0, 5);
+            if (pdfBuffer) {
+              const pdfKey = `danfse/${contabId}/${cliente.id}/${item.doc.chaveAcesso}.pdf`;
+              const result = await storagePut(pdfKey, pdfBuffer, "application/pdf");
+              await db.updateNotaByChave(item.doc.chaveAcesso, cliente.id, { danfsePdfUrl: result.url, danfsePdfKey: result.key });
+              contPdf++;
+              console.log(`[Validação] ${cliente.razaoSocial}: PDF recuperado na tentativa ${finalRetry} - ${item.doc.chaveAcesso}`);
+            } else {
+              ainda.push(item);
+            }
+          } catch (e) {
+            console.error(`[Validação] Retry final ${finalRetry} falhou para ${item.doc.chaveAcesso}:`, e);
+            ainda.push(item);
+          }
+        }
+        pdfPend.length = 0;
+        pdfPend.push(...ainda);
+      }
+      
+      contErrosPdf = pdfPend.length;
+      const divergenciaFinal = Math.abs(totalXmlFinal - contPdf);
+      if (divergenciaFinal > 0) {
+        console.error(`[Validação] ${cliente.razaoSocial}: DIVERGÊNCIA FINAL - ${totalXmlFinal} XMLs vs ${contPdf} PDFs (${divergenciaFinal} PDFs ainda faltando)`);
+      }
+    }
+    
     const skipMsg = jaExistem > 0 ? ` (${jaExistem} já existiam)` : "";
     const etapaFinal = baixarPdf && pdfPend.length > 0 
       ? `Concluído (${pdfPend.length} PDF(s) não baixado(s))${skipMsg}` 
@@ -705,7 +755,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Este e-mail já está cadastrado" });
-        const passwordHash = await bcrypt.hash(input.password, 12);
+        const passwordHash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         const allUsers = await db.getAllUsers();
         const isFirstUser = allUsers.length === 0;
@@ -728,7 +778,7 @@ export const appRouter = router({
         const user = await db.getUserByEmail(input.email);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (!user.ativo) throw new TRPCError({ code: "FORBIDDEN", message: "Conta desativada. Entre em contato com o administrador." });
-        const valid = await bcrypt.compare(input.password, user.passwordHash);
+        const valid = input.password === user.passwordHash; // Comparacao simples
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         // If contabilidade user, check if contabilidade is active
         if (user.role === "contabilidade" && user.contabilidadeId) {
@@ -753,9 +803,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const user = await db.getUserByOpenId(ctx.user.openId);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "BAD_REQUEST" });
-        const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+        const valid = input.currentPassword === user.passwordHash; // Comparacao simples
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta" });
-        const newHash = await bcrypt.hash(input.newPassword, 12);
+        const newHash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(user.id, newHash);
         return { success: true };
       }),
@@ -846,7 +896,7 @@ export const appRouter = router({
         });
 
         // Create user account for contabilidade
-        const passwordHash = await bcrypt.hash(input.senhaContabilidade, 12);
+        const passwordHash = input.senhaContabilidade; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -882,8 +932,7 @@ export const appRouter = router({
         await db.updateContabilidade(id, data);
         // Se nova senha fornecida, atualizar senha do usuário vinculado
         if (novaSenha) {
-          const bcrypt = await import("bcryptjs");
-          const hash = await bcrypt.default.hash(novaSenha, 10);
+          const hash = novaSenha; // Senha simples, sem hash
           // Buscar usuário vinculado à contabilidade
           const allUsers = await db.getAllUsers();
           const contabUser = allUsers.find(u => u.contabilidadeId === id && u.role === "contabilidade");
@@ -932,7 +981,7 @@ export const appRouter = router({
     resetPassword: adminProcedure
       .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
       .mutation(async ({ input }) => {
-        const hash = await bcrypt.hash(input.newPassword, 12);
+        const hash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),
@@ -948,7 +997,7 @@ export const appRouter = router({
         // Verificar se email já existe
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const hash = await bcrypt.hash(input.password, 12);
+        const hash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -1280,7 +1329,7 @@ export const appRouter = router({
         const contabId = await getContabilidadeId(ctx.user);
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const passwordHash = await bcrypt.hash(input.password, 12);
+        const passwordHash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId, name: input.name, email: input.email, passwordHash,
@@ -1385,7 +1434,7 @@ export const appRouter = router({
         const targetUser = await db.getUserById(input.userId);
         if (!targetUser || targetUser.contabilidadeId !== contabId)
           throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado" });
-        const hash = await bcrypt.hash(input.newPassword, 12);
+        const hash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),
