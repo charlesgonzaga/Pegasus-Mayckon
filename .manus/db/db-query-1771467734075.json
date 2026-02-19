@@ -1,0 +1,22 @@
+{
+  "query": "SELECT status, COUNT(*) as total FROM cte_download_logs GROUP BY status ORDER BY total DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT status, COUNT(*) as total FROM cte_download_logs GROUP BY status ORDER BY total DESC;",
+  "rows": [
+    {
+      "status": "concluido",
+      "total": "99"
+    },
+    {
+      "status": "pendente",
+      "total": "63"
+    },
+    {
+      "status": "executando",
+      "total": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "status\ttotal\nconcluido\t99\npendente\t63\nexecutando\t2\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

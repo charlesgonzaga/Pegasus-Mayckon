@@ -1,0 +1,9 @@
+{
+  "query": "SELECT chave, valor FROM settings WHERE chave = 'max_empresas_simultaneas';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT chave, valor FROM settings WHERE chave = 'max_empresas_simultaneas';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 68
+}

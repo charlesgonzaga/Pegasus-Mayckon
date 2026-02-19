@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE cte_download_logs SET status = 'erro', erro = 'Download interrompido - servidor reiniciado', finalizadoEm = NOW() WHERE status IN ('executando', 'pendente');",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute UPDATE cte_download_logs SET status = 'erro', erro = 'Download interrompido - servidor reiniciado', finalizadoEm = NOW() WHERE status IN ('executando', 'pendente');",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 85
+}

@@ -1,0 +1,426 @@
+{
+  "query": "DESCRIBE cte_notas;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute DESCRIBE cte_notas;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment"
+    },
+    {
+      "Field": "clienteId",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "contabilidadeId",
+      "Type": "int(11)",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "chaveAcesso",
+      "Type": "varchar(60)",
+      "Null": "NO",
+      "Key": "UNI",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "nsu",
+      "Type": "bigint(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "numeroCte",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "serie",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "modelo",
+      "Type": "varchar(5)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tipoDocumento",
+      "Type": "enum('CTE','CTE_OS','GTVE','CTE_SIMP','EVENTO')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tipoEvento",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "direcao",
+      "Type": "enum('emitido','tomado','terceiro')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "tomado",
+      "Extra": ""
+    },
+    {
+      "Field": "status",
+      "Type": "enum('autorizado','cancelado','denegado')",
+      "Null": "NO",
+      "Key": "",
+      "Default": "autorizado",
+      "Extra": ""
+    },
+    {
+      "Field": "emitenteCnpj",
+      "Type": "varchar(18)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "emitenteNome",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "emitenteUf",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "remetenteCnpj",
+      "Type": "varchar(18)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "remetenteNome",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "destinatarioCnpj",
+      "Type": "varchar(18)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "destinatarioNome",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tomadorCnpj",
+      "Type": "varchar(18)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tomadorNome",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorTotal",
+      "Type": "decimal(15,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorReceber",
+      "Type": "decimal(15,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorICMS",
+      "Type": "decimal(15,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cfop",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "natOp",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "modal",
+      "Type": "enum('rodoviario','aereo','aquaviario','ferroviario','dutoviario','multimodal')",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "ufInicio",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "ufFim",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "munInicio",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "munFim",
+      "Type": "varchar(100)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dataEmissao",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "xmlOriginal",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dactePdfUrl",
+      "Type": "varchar(512)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dactePdfKey",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "dataDownload",
+      "Type": "timestamp",
+      "Null": "YES",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": ""
+    },
+    {
+      "Field": "updatedAt",
+      "Type": "timestamp",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+    },
+    {
+      "Field": "produtoPredominante",
+      "Type": "varchar(255)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "pesoBruto",
+      "Type": "decimal(15,4)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "valorCarga",
+      "Type": "decimal(15,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "cstIcms",
+      "Type": "varchar(10)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "baseCalcIcms",
+      "Type": "decimal(15,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "aliqIcms",
+      "Type": "decimal(5,2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "rntrc",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "placa",
+      "Type": "varchar(20)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "protocolo",
+      "Type": "varchar(30)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "chavesNfe",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "observacoes",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "remetenteUf",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "destinatarioUf",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "tomadorUf",
+      "Type": "varchar(2)",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nid\tint(11)\tNO\tPRI\tNULL\tauto_increment\nclienteId\tint(11)\tNO\t\tNULL\t\ncontabilidadeId\tint(11)\tNO\t\tNULL\t\nchaveAcesso\tvarchar(60)\tNO\tUNI\tNULL\t\nnsu\tbigint(20)\tYES\t\tNULL\t\nnumeroCte\tvarchar(20)\tYES\t\tNULL\t\nserie\tvarchar(10)\tYES\t\tNULL\t\nmodelo\tvarchar(5)\tYES\t\tNULL\t\ntipoDocumento\tenum('CTE','CTE_OS','GTVE','CTE_SIMP','EVENTO')\tNO\t\tNULL\t\ntipoEvento\tvarchar(100)\tYES\t\tNULL\t\ndirecao\tenum('emitido','tomado','terceiro')\tNO\t\ttomado\t\nstatus\tenum('autorizado','cancelado','denegado')\tNO\t\tautorizado\t\nemitenteCnpj\tvarchar(18)\tYES\t\tNULL\t\nemitenteNome\tvarchar(255)\tYES\t\tNULL\t\nemitenteUf\tvarchar(2)\tYES\t\tNULL\t\nremetenteCnpj\tvarchar(18)\tYES\t\tNULL\t\nremetenteNome\tvarchar(255)\tYES\t\tNULL\t\ndestinatarioCnpj\tvarchar(18)\tYES\t\tNULL\t\ndestinatarioNome\tvarchar(255)\tYES\t\tNULL\t\ntomadorCnpj\tvarchar(18)\tYES\t\tNULL\t\ntomadorNome\tvarchar(255)\tYES\t\tNULL\t\nvalorTotal\tdecimal(15,2)\tYES\t\tNULL\t\nvalorReceber\tdecimal(15,2)\tYES\t\tNULL\t\nvalorICMS\tdecimal(15,2)\tYES\t\tNULL\t\ncfop\tvarchar(10)\tYES\t\tNULL\t\nnatOp\tvarchar(255)\tYES\t\tNULL\t\nmodal\tenum('rodoviario','aereo','aquaviario','ferroviario','dutoviario','multimodal')\tYES\t\tNULL\t\nufInicio\tvarchar(2)\tYES\t\tNULL\t\nufFim\tvarchar(2)\tYES\t\tNULL\t\nmunInicio\tvarchar(100)\tYES\t\tNULL\t\nmunFim\tvarchar(100)\tYES\t\tNULL\t\ndataEmissao\ttimestamp\tYES\t\tNULL\t\nxmlOriginal\ttext\tYES\t\tNULL\t\ndactePdfUrl\tvarchar(512)\tYES\t\tNULL\t\ndactePdfKey\tvarchar(255)\tYES\t\tNULL\t\ndataDownload\ttimestamp\tYES\t\tCURRENT_TIMESTAMP\t\ncreatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\t\nupdatedAt\ttimestamp\tNO\t\tCURRENT_TIMESTAMP\tDEFAULT_GENERATED on update CURRENT_TIMESTAMP\nprodutoPredominante\tvarchar(255)\tYES\t\tNULL\t\npesoBruto\tdecimal(15,4)\tYES\t\tNULL\t\nvalorCarga\tdecimal(15,2)\tYES\t\tNULL\t\ncstIcms\tvarchar(10)\tYES\t\tNULL\t\nbaseCalcIcms\tdecimal(15,2)\tYES\t\tNULL\t\naliqIcms\tdecimal(5,2)\tYES\t\tNULL\t\nrntrc\tvarchar(20)\tYES\t\tNULL\t\nplaca\tvarchar(20)\tYES\t\tNULL\t\nprotocolo\tvarchar(30)\tYES\t\tNULL\t\nchavesNfe\ttext\tYES\t\tNULL\t\nobservacoes\ttext\tYES\t\tNULL\t\nremetenteUf\tvarchar(2)\tYES\t\tNULL\t\ndestinatarioUf\tvarchar(2)\tYES\t\tNULL\t\ntomadorUf\tvarchar(2)\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 64
+}

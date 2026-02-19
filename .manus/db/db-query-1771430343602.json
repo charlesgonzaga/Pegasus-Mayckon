@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, name, email, role FROM users WHERE role IN ('contabilidade', 'usuario') LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT id, name, email, role FROM users WHERE role IN ('contabilidade', 'usuario') LIMIT 10;",
+  "rows": [
+    {
+      "id": "31",
+      "name": "Adriana",
+      "email": "adriana.gonzag@gmail.com",
+      "role": "contabilidade"
+    },
+    {
+      "id": "90008",
+      "name": "Mayckon",
+      "email": "MAYCKON@gmail.com",
+      "role": "usuario"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\n31\tAdriana\tadriana.gonzag@gmail.com\tcontabilidade\n90008\tMayckon\tMAYCKON@gmail.com\tusuario\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

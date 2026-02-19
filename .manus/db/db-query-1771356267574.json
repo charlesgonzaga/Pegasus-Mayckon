@@ -1,0 +1,30 @@
+{
+  "query": "SELECT dataEmissao, DATE_FORMAT(dataEmissao, '%Y-%m') as mes FROM notas ORDER BY dataEmissao ASC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT dataEmissao, DATE_FORMAT(dataEmissao, '%Y-%m') as mes FROM notas ORDER BY dataEmissao ASC LIMIT 5;",
+  "rows": [
+    {
+      "dataEmissao": "2022-12-02 10:49:29",
+      "mes": "2022-12"
+    },
+    {
+      "dataEmissao": "2022-12-02 13:25:51",
+      "mes": "2022-12"
+    },
+    {
+      "dataEmissao": "2022-12-02 13:39:30",
+      "mes": "2022-12"
+    },
+    {
+      "dataEmissao": "2022-12-05 03:00:00",
+      "mes": "2022-12"
+    },
+    {
+      "dataEmissao": "2022-12-05 10:52:00",
+      "mes": "2022-12"
+    }
+  ],
+  "messages": [],
+  "stdout": "dataEmissao\tmes\n2022-12-02 10:49:29\t2022-12\n2022-12-02 13:25:51\t2022-12\n2022-12-02 13:39:30\t2022-12\n2022-12-05 03:00:00\t2022-12\n2022-12-05 10:52:00\t2022-12\n",
+  "stderr": "",
+  "execution_time_ms": 101
+}

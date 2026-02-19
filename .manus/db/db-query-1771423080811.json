@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as total_notas FROM notas; SELECT COUNT(*) as total_clientes FROM clientes; SELECT COUNT(*) as total_download_logs FROM download_logs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT COUNT(*) as total_notas FROM notas; SELECT COUNT(*) as total_clientes FROM clientes; SELECT COUNT(*) as total_download_logs FROM download_logs;",
+  "rows": [
+    {
+      "total_notas": "209"
+    },
+    {
+      "total_notas": "total_clientes"
+    },
+    {
+      "total_notas": "0"
+    },
+    {
+      "total_notas": "total_download_logs"
+    },
+    {
+      "total_notas": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_notas\n209\ntotal_clientes\n0\ntotal_download_logs\n0\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

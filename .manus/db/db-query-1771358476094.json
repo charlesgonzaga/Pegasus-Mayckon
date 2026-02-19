@@ -1,0 +1,185 @@
+{
+  "query": "SELECT YEAR(dataCompetencia) as ano, MONTH(dataCompetencia) as mes, COUNT(*) as totalNotas FROM notas WHERE clienteId IN (180005) AND contabilidadeId = 2 AND dataCompetencia IS NOT NULL GROUP BY YEAR(dataCompetencia), MONTH(dataCompetencia) ORDER BY YEAR(dataCompetencia) DESC, MONTH(dataCompetencia) DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT YEAR(dataCompetencia) as ano, MONTH(dataCompetencia) as mes, COUNT(*) as totalNotas FROM notas WHERE clienteId IN (180005) AND contabilidadeId = 2 AND dataCompetencia IS NOT NULL GROUP BY YEAR(dataCompetencia), MONTH(dataCompetencia) ORDER BY YEAR(dataCompetencia) DESC, MONTH(dataCompetencia) DESC;",
+  "rows": [
+    {
+      "ano": "2026",
+      "mes": "2",
+      "totalNotas": "18"
+    },
+    {
+      "ano": "2026",
+      "mes": "1",
+      "totalNotas": "145"
+    },
+    {
+      "ano": "2025",
+      "mes": "12",
+      "totalNotas": "26"
+    },
+    {
+      "ano": "2025",
+      "mes": "11",
+      "totalNotas": "5"
+    },
+    {
+      "ano": "2025",
+      "mes": "10",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2025",
+      "mes": "9",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2025",
+      "mes": "8",
+      "totalNotas": "2"
+    },
+    {
+      "ano": "2025",
+      "mes": "7",
+      "totalNotas": "1"
+    },
+    {
+      "ano": "2025",
+      "mes": "6",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2025",
+      "mes": "5",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2025",
+      "mes": "4",
+      "totalNotas": "2"
+    },
+    {
+      "ano": "2025",
+      "mes": "3",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2025",
+      "mes": "2",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2025",
+      "mes": "1",
+      "totalNotas": "8"
+    },
+    {
+      "ano": "2024",
+      "mes": "12",
+      "totalNotas": "2"
+    },
+    {
+      "ano": "2024",
+      "mes": "11",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2024",
+      "mes": "10",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2024",
+      "mes": "9",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2024",
+      "mes": "8",
+      "totalNotas": "5"
+    },
+    {
+      "ano": "2024",
+      "mes": "7",
+      "totalNotas": "3"
+    },
+    {
+      "ano": "2024",
+      "mes": "6",
+      "totalNotas": "6"
+    },
+    {
+      "ano": "2024",
+      "mes": "5",
+      "totalNotas": "8"
+    },
+    {
+      "ano": "2024",
+      "mes": "4",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2024",
+      "mes": "3",
+      "totalNotas": "2"
+    },
+    {
+      "ano": "2024",
+      "mes": "2",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2024",
+      "mes": "1",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2023",
+      "mes": "12",
+      "totalNotas": "6"
+    },
+    {
+      "ano": "2023",
+      "mes": "11",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2023",
+      "mes": "10",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2023",
+      "mes": "9",
+      "totalNotas": "4"
+    },
+    {
+      "ano": "2023",
+      "mes": "8",
+      "totalNotas": "1"
+    },
+    {
+      "ano": "2023",
+      "mes": "7",
+      "totalNotas": "1"
+    },
+    {
+      "ano": "2023",
+      "mes": "6",
+      "totalNotas": "1"
+    },
+    {
+      "ano": "2023",
+      "mes": "5",
+      "totalNotas": "1"
+    },
+    {
+      "ano": "2023",
+      "mes": "4",
+      "totalNotas": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "ano\tmes\ttotalNotas\n2026\t2\t18\n2026\t1\t145\n2025\t12\t26\n2025\t11\t5\n2025\t10\t4\n2025\t9\t4\n2025\t8\t2\n2025\t7\t1\n2025\t6\t3\n2025\t5\t4\n2025\t4\t2\n2025\t3\t3\n2025\t2\t4\n2025\t1\t8\n2024\t12\t2\n2024\t11\t3\n2024\t10\t3\n2024\t9\t3\n2024\t8\t5\n2024\t7\t3\n2024\t6\t6\n2024\t5\t8\n2024\t4\t4\n2024\t3\t2\n2024\t2\t4\n2024\t1\t4\n2023\t12\t6\n2023\t11\t4\n2023\t10\t4\n2023\t9\t4\n2023\t8\t1\n2023\t7\t1\n2023\t6\t1\n2023\t5\t1\n2023\t4\t1\n",
+  "stderr": "",
+  "execution_time_ms": 88
+}

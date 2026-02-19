@@ -1,0 +1,14 @@
+{
+  "query": "SELECT COUNT(*) as total, COALESCE(SUM(CAST(valorServico AS DECIMAL(15,2))), 0) as valor FROM notas WHERE contabilidadeId = 2 AND DATE_FORMAT(dataEmissao, '%Y-%m') = '2025-10';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT COUNT(*) as total, COALESCE(SUM(CAST(valorServico AS DECIMAL(15,2))), 0) as valor FROM notas WHERE contabilidadeId = 2 AND DATE_FORMAT(dataEmissao, '%Y-%m') = '2025-10';",
+  "rows": [
+    {
+      "total": "469",
+      "valor": "1911834.22"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\tvalor\n469\t1911834.22\n",
+  "stderr": "",
+  "execution_time_ms": 627
+}

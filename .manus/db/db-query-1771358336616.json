@@ -1,0 +1,16 @@
+{
+  "query": "SELECT COUNT(*) as total, SUM(CASE WHEN dataCompetencia IS NULL THEN 1 ELSE 0 END) as nullComp, SUM(CASE WHEN dataCompetencia = '' THEN 1 ELSE 0 END) as emptyComp, SUM(CASE WHEN dataEmissao IS NULL THEN 1 ELSE 0 END) as nullEmis FROM notas n JOIN clientes c ON c.id = n.clienteId WHERE c.razaoSocial LIKE '%ALLBATROZ%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT COUNT(*) as total, SUM(CASE WHEN dataCompetencia IS NULL THEN 1 ELSE 0 END) as nullComp, SUM(CASE WHEN dataCompetencia = '' THEN 1 ELSE 0 END) as emptyComp, SUM(CASE WHEN dataEmissao IS NULL THEN 1 ELSE 0 END) as nullEmis FROM notas n JOIN clientes c ON c.id = n.clienteId WHERE c.razaoSocial LIKE '%ALLBATROZ%';",
+  "rows": [
+    {
+      "total": "299",
+      "nullComp": "0",
+      "emptyComp": "0",
+      "nullEmis": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\tnullComp\temptyComp\tnullEmis\n299\t0\t0\t0\n",
+  "stderr": "",
+  "execution_time_ms": 119
+}

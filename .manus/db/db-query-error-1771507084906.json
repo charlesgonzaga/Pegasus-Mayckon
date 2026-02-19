@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, numero_cte, chaves_nfe FROM cte_notas WHERE chaves_nfe IS NOT NULL AND chaves_nfe != '' AND chaves_nfe != '[]' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT id, numero_cte, chaves_nfe FROM cte_notas WHERE chaves_nfe IS NOT NULL AND chaves_nfe != '' AND chaves_nfe != '[]' LIMIT 10;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'chaves_nfe' in 'where clause'"
+  ]
+}

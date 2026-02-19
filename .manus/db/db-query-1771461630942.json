@@ -1,0 +1,19 @@
+{
+  "query": "SHOW TABLES LIKE 'cte%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SHOW TABLES LIKE 'cte%';",
+  "rows": [
+    {
+      "Tables_in_2ckaMFDgknxSWbaAs85a3h (cte%)": "cte_download_logs"
+    },
+    {
+      "Tables_in_2ckaMFDgknxSWbaAs85a3h (cte%)": "cte_notas"
+    },
+    {
+      "Tables_in_2ckaMFDgknxSWbaAs85a3h (cte%)": "cte_nsu_control"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_2ckaMFDgknxSWbaAs85a3h (cte%)\ncte_download_logs\ncte_notas\ncte_nsu_control\n",
+  "stderr": "",
+  "execution_time_ms": 114
+}

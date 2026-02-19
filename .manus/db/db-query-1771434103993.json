@@ -1,0 +1,54 @@
+{
+  "query": "SELECT chave, valor FROM settings WHERE chave LIKE '%download%' OR chave LIKE '%max_%' OR chave LIKE '%num_%' OR chave LIKE '%delay%' OR chave LIKE '%timeout%' OR chave LIKE '%rodada%' OR chave LIKE '%retomada%' ORDER BY chave;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT chave, valor FROM settings WHERE chave LIKE '%download%' OR chave LIKE '%max_%' OR chave LIKE '%num_%' OR chave LIKE '%delay%' OR chave LIKE '%timeout%' OR chave LIKE '%rodada%' OR chave LIKE '%retomada%' ORDER BY chave;",
+  "rows": [
+    {
+      "chave": "auto_retomada_status_1",
+      "valor": ""
+    },
+    {
+      "chave": "auto_retomada_status_2",
+      "valor": ""
+    },
+    {
+      "chave": "delay_entre_paginas",
+      "valor": "300"
+    },
+    {
+      "chave": "delay_entre_pdfs",
+      "valor": "500"
+    },
+    {
+      "chave": "download_engine_status_2",
+      "valor": "{\"total\":166,\"concluidas\":76,\"erros\":21,\"executando\":5,\"naFila\":59,\"iniciadoEm\":1771432803872}"
+    },
+    {
+      "chave": "max_rodadas_retomada",
+      "valor": "2"
+    },
+    {
+      "chave": "max_tentativas_pdf",
+      "valor": "3"
+    },
+    {
+      "chave": "modo_download",
+      "valor": "sequencial"
+    },
+    {
+      "chave": "pular_pdf_erro_retomada",
+      "valor": "true"
+    },
+    {
+      "chave": "timeout_dinamico",
+      "valor": "true"
+    },
+    {
+      "chave": "timeout_por_empresa",
+      "valor": "180"
+    }
+  ],
+  "messages": [],
+  "stdout": "chave\tvalor\nauto_retomada_status_1\t\nauto_retomada_status_2\t\ndelay_entre_paginas\t300\ndelay_entre_pdfs\t500\ndownload_engine_status_2\t{\"total\":166,\"concluidas\":76,\"erros\":21,\"executando\":5,\"naFila\":59,\"iniciadoEm\":1771432803872}\nmax_rodadas_retomada\t2\nmax_tentativas_pdf\t3\nmodo_download\tsequencial\npular_pdf_erro_retomada\ttrue\ntimeout_dinamico\ttrue\ntimeout_por_empresa\t180\n",
+  "stderr": "",
+  "execution_time_ms": 64
+}

@@ -1,0 +1,28 @@
+{
+  "query": "SELECT COUNT(DISTINCT clienteId) as clientes_com_cte FROM cte_notas; SELECT COUNT(*) as total_nsu, COUNT(CASE WHEN ultimoNsu > 0 THEN 1 END) as nsu_positivo FROM cte_nsu_control; SELECT contabilidadeId, COUNT(*) as total FROM cte_nsu_control GROUP BY contabilidadeId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT COUNT(DISTINCT clienteId) as clientes_com_cte FROM cte_notas; SELECT COUNT(*) as total_nsu, COUNT(CASE WHEN ultimoNsu > 0 THEN 1 END) as nsu_positivo FROM cte_nsu_control; SELECT contabilidadeId, COUNT(*) as total FROM cte_nsu_control GROUP BY contabilidadeId;",
+  "rows": [
+    {
+      "clientes_com_cte": "34"
+    },
+    {
+      "clientes_com_cte": "total_nsu\tnsu_positivo"
+    },
+    {
+      "clientes_com_cte": "589\t44"
+    },
+    {
+      "clientes_com_cte": "contabilidadeId\ttotal"
+    },
+    {
+      "clientes_com_cte": "2\t578"
+    },
+    {
+      "clientes_com_cte": "999999\t11"
+    }
+  ],
+  "messages": [],
+  "stdout": "clientes_com_cte\n34\ntotal_nsu\tnsu_positivo\n589\t44\ncontabilidadeId\ttotal\n2\t578\n999999\t11\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

@@ -1,0 +1,29 @@
+XML NFSe Structure Analysis:
+
+PRESTADOR (emit):
+- Path: NFSe > infNFSe > emit
+  - CNPJ: emit > CNPJ = 33389328000109
+  - xNome: emit > xNome = TURIN TRADING IMPORTACAO E EXPORTACAO LTDA
+  - enderNac > xLgr, nro, xBairro, cMun, UF, CEP
+  - fone
+
+TOMADOR (toma) - inside DPS:
+- Path: NFSe > infNFSe > DPS > infDPS > toma
+  - CNPJ: toma > CNPJ = 30036744000208
+  - xNome: toma > xNome = MEDERI REPRESENTACOES LTDA
+  - end > endNac > cMun, CEP
+  - end > xLgr, nro, xCpl, xBairro
+
+DESCRIÇÃO DO SERVIÇO - inside DPS:
+- Path: NFSe > infNFSe > DPS > infDPS > serv > cServ
+  - cTribNac = 330101
+  - xDescServ = HONORÁRIOS DO SCT0167AR/25 - NF DE SAÍDA DE MERCADORIA SERIE 1 - N: 3.869.
+
+PRESTADOR (prest) - inside DPS:
+- Path: NFSe > infNFSe > DPS > infDPS > prest
+  - CNPJ: 33389328000109
+  - fone
+
+KEY ISSUE: The frontend is likely reading tomador from the wrong path.
+The tomador data is inside DPS > infDPS > toma, NOT at the same level as emit.
+The description is at DPS > infDPS > serv > cServ > xDescServ.

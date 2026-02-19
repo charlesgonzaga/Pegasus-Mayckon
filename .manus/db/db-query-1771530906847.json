@@ -1,0 +1,34 @@
+{
+  "query": "SELECT 'notas' as tabela, COUNT(*) as total FROM notas UNION ALL SELECT 'clientes', COUNT(*) FROM clientes UNION ALL SELECT 'certificados', COUNT(*) FROM certificados UNION ALL SELECT 'download_logs', COUNT(*) FROM download_logs UNION ALL SELECT 'cte_notas', COUNT(*) FROM cte_notas UNION ALL SELECT 'contabilidades', COUNT(*) FROM contabilidades",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT 'notas' as tabela, COUNT(*) as total FROM notas UNION ALL SELECT 'clientes', COUNT(*) FROM clientes UNION ALL SELECT 'certificados', COUNT(*) FROM certificados UNION ALL SELECT 'download_logs', COUNT(*) FROM download_logs UNION ALL SELECT 'cte_notas', COUNT(*) FROM cte_notas UNION ALL SELECT 'contabilidades', COUNT(*) FROM contabilidades",
+  "rows": [
+    {
+      "tabela": "certificados",
+      "total": "3"
+    },
+    {
+      "tabela": "clientes",
+      "total": "3"
+    },
+    {
+      "tabela": "download_logs",
+      "total": "3"
+    },
+    {
+      "tabela": "contabilidades",
+      "total": "1"
+    },
+    {
+      "tabela": "cte_notas",
+      "total": "0"
+    },
+    {
+      "tabela": "notas",
+      "total": "72"
+    }
+  ],
+  "messages": [],
+  "stdout": "tabela\ttotal\ncertificados\t3\nclientes\t3\ndownload_logs\t3\ncontabilidades\t1\ncte_notas\t0\nnotas\t72\n",
+  "stderr": "",
+  "execution_time_ms": 64
+}

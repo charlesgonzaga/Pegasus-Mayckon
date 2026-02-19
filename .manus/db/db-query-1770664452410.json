@@ -1,0 +1,42 @@
+{
+  "query": "SELECT status, direcao, tipoDocumento, COUNT(*) as total, SUM(CASE WHEN xmlOriginal IS NOT NULL AND xmlOriginal != '' THEN 1 ELSE 0 END) as com_xml, SUM(CASE WHEN danfsePdfUrl IS NOT NULL AND danfsePdfUrl != '' THEN 1 ELSE 0 END) as com_pdf FROM notas GROUP BY status, direcao, tipoDocumento;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT status, direcao, tipoDocumento, COUNT(*) as total, SUM(CASE WHEN xmlOriginal IS NOT NULL AND xmlOriginal != '' THEN 1 ELSE 0 END) as com_xml, SUM(CASE WHEN danfsePdfUrl IS NOT NULL AND danfsePdfUrl != '' THEN 1 ELSE 0 END) as com_pdf FROM notas GROUP BY status, direcao, tipoDocumento;",
+  "rows": [
+    {
+      "status": "cancelada",
+      "direcao": "emitida",
+      "tipoDocumento": "NFSE",
+      "total": "3",
+      "com_xml": "3",
+      "com_pdf": "1"
+    },
+    {
+      "status": "valida",
+      "direcao": "recebida",
+      "tipoDocumento": "NFSE",
+      "total": "47",
+      "com_xml": "47",
+      "com_pdf": "15"
+    },
+    {
+      "status": "valida",
+      "direcao": "emitida",
+      "tipoDocumento": "NFSE",
+      "total": "98",
+      "com_xml": "98",
+      "com_pdf": "29"
+    },
+    {
+      "status": "cancelada",
+      "direcao": "recebida",
+      "tipoDocumento": "NFSE",
+      "total": "4",
+      "com_xml": "4",
+      "com_pdf": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "status\tdirecao\ttipoDocumento\ttotal\tcom_xml\tcom_pdf\ncancelada\temitida\tNFSE\t3\t3\t1\nvalida\trecebida\tNFSE\t47\t47\t15\nvalida\temitida\tNFSE\t98\t98\t29\ncancelada\trecebida\tNFSE\t4\t4\t0\n",
+  "stderr": "",
+  "execution_time_ms": 144
+}

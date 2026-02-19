@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as total FROM notas WHERE contabilidadeId = 2 AND DATE_FORMAT(`notas`.`dataEmissao`, '%Y-%m') = '2026-02';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT COUNT(*) as total FROM notas WHERE contabilidadeId = 2 AND DATE_FORMAT(`notas`.`dataEmissao`, '%Y-%m') = '2026-02';",
+  "rows": [
+    {
+      "total": "3703"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n3703\n",
+  "stderr": "",
+  "execution_time_ms": 123
+}

@@ -1,0 +1,90 @@
+{
+  "query": "SELECT DATE_FORMAT(dataEmissao, '%Y-%m') as mes, COUNT(*) as total FROM notas GROUP BY DATE_FORMAT(dataEmissao, '%Y-%m') ORDER BY mes DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT DATE_FORMAT(dataEmissao, '%Y-%m') as mes, COUNT(*) as total FROM notas GROUP BY DATE_FORMAT(dataEmissao, '%Y-%m') ORDER BY mes DESC LIMIT 20;",
+  "rows": [
+    {
+      "mes": "2026-02",
+      "total": "3699"
+    },
+    {
+      "mes": "2026-01",
+      "total": "9892"
+    },
+    {
+      "mes": "2025-12",
+      "total": "2735"
+    },
+    {
+      "mes": "2025-11",
+      "total": "725"
+    },
+    {
+      "mes": "2025-10",
+      "total": "469"
+    },
+    {
+      "mes": "2025-09",
+      "total": "381"
+    },
+    {
+      "mes": "2025-08",
+      "total": "386"
+    },
+    {
+      "mes": "2025-07",
+      "total": "397"
+    },
+    {
+      "mes": "2025-06",
+      "total": "374"
+    },
+    {
+      "mes": "2025-05",
+      "total": "344"
+    },
+    {
+      "mes": "2025-04",
+      "total": "331"
+    },
+    {
+      "mes": "2025-03",
+      "total": "329"
+    },
+    {
+      "mes": "2025-02",
+      "total": "332"
+    },
+    {
+      "mes": "2025-01",
+      "total": "321"
+    },
+    {
+      "mes": "2024-12",
+      "total": "303"
+    },
+    {
+      "mes": "2024-11",
+      "total": "296"
+    },
+    {
+      "mes": "2024-10",
+      "total": "297"
+    },
+    {
+      "mes": "2024-09",
+      "total": "268"
+    },
+    {
+      "mes": "2024-08",
+      "total": "278"
+    },
+    {
+      "mes": "2024-07",
+      "total": "273"
+    }
+  ],
+  "messages": [],
+  "stdout": "mes\ttotal\n2026-02\t3699\n2026-01\t9892\n2025-12\t2735\n2025-11\t725\n2025-10\t469\n2025-09\t381\n2025-08\t386\n2025-07\t397\n2025-06\t374\n2025-05\t344\n2025-04\t331\n2025-03\t329\n2025-02\t332\n2025-01\t321\n2024-12\t303\n2024-11\t296\n2024-10\t297\n2024-09\t268\n2024-08\t278\n2024-07\t273\n",
+  "stderr": "",
+  "execution_time_ms": 171
+}
