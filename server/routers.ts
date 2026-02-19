@@ -403,50 +403,6 @@ export async function processClienteDownload(
       }
     }
     contErrosPdf = baixarPdf ? pdfPend.length : 0;
-    
-    // VALIDAÇÃO CRÍTICA: Garantir que XMLs e PDFs estão em quantidade igual
-    const totalXmlFinal = contXml + jaExistem;
-    const totalPdfFinal = contPdf;
-    const divergencia = baixarPdf ? Math.abs(totalXmlFinal - totalPdfFinal) : 0;
-    
-    if (baixarPdf && divergencia > 0) {
-      console.warn(`[Validação] ${cliente.razaoSocial}: DIVERGÊNCIA DETECTADA - ${totalXmlFinal} XMLs vs ${totalPdfFinal} PDFs (diferença: ${divergencia})`);
-      console.warn(`[Validação] Tentando novamente os ${pdfPend.length} PDFs faltantes com retry agressivo...`);
-      
-      // Retry agressivo final: até 3 tentativas adicionais com delay maior
-      for (let finalRetry = 1; finalRetry <= 3 && pdfPend.length > 0; finalRetry++) {
-        await db.updateDownloadLog(logId!, { etapa: `Retry final ${finalRetry}/3: ${pdfPend.length} PDF(s) faltando...` });
-        await new Promise(r => setTimeout(r, 3000 * finalRetry)); // 3s, 6s, 9s
-        
-        const ainda: typeof pdfPend = [];
-        for (const item of pdfPend) {
-          try {
-            const pdfBuffer = await fetchDanfsePdf(certInfo.cert, certInfo.key, item.doc.chaveAcesso, 0, 5);
-            if (pdfBuffer) {
-              const pdfKey = `danfse/${contabId}/${cliente.id}/${item.doc.chaveAcesso}.pdf`;
-              const result = await storagePut(pdfKey, pdfBuffer, "application/pdf");
-              await db.updateNotaByChave(item.doc.chaveAcesso, cliente.id, { danfsePdfUrl: result.url, danfsePdfKey: result.key });
-              contPdf++;
-              console.log(`[Validação] ${cliente.razaoSocial}: PDF recuperado na tentativa ${finalRetry} - ${item.doc.chaveAcesso}`);
-            } else {
-              ainda.push(item);
-            }
-          } catch (e) {
-            console.error(`[Validação] Retry final ${finalRetry} falhou para ${item.doc.chaveAcesso}:`, e);
-            ainda.push(item);
-          }
-        }
-        pdfPend.length = 0;
-        pdfPend.push(...ainda);
-      }
-      
-      contErrosPdf = pdfPend.length;
-      const divergenciaFinal = Math.abs(totalXmlFinal - contPdf);
-      if (divergenciaFinal > 0) {
-        console.error(`[Validação] ${cliente.razaoSocial}: DIVERGÊNCIA FINAL - ${totalXmlFinal} XMLs vs ${contPdf} PDFs (${divergenciaFinal} PDFs ainda faltando)`);
-      }
-    }
-    
     const skipMsg = jaExistem > 0 ? ` (${jaExistem} já existiam)` : "";
     const etapaFinal = baixarPdf && pdfPend.length > 0 
       ? `Concluído (${pdfPend.length} PDF(s) não baixado(s))${skipMsg}` 

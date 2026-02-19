@@ -683,12 +683,7 @@
 - [x] Auto-Retomada CT-e: card na tela Ferramentas com toggle, tempo de espera, retomada infinita
 - [x] BUG: Badge "Contabilidade" na sidebar com contraste ruim no tema escuro - texto ilegível
 - [x] BUG: Ícones e textos da sidebar em azul ficam ruins no tema claro - ajustar para funcionar em todos os temas
-- [x] BUG CRÍTICO: "Apagar Tudo" não limpa tabela de notas fiscais - VERIFICADO: funcionou corretamente, dados eram das 3 empresas reimportadas
-- [x] Manual do Usuário PDF com ilustrações (incluindo CT-e e todas funcionalidades)
-- [x] Manual Técnico do Sistema PDF (documentação técnica completa)
-- [x] Script de vídeo para Veed.io (funcionalidades e vantagens do Pegasus)
-- [x] Simplificar login: remover dependência do Manus OAuth para primeiro acesso
-- [x] Login direto com email/senha sem precisar de token OAuth
-- [x] Criar admin padrão automaticamente no primeiro acesso se não existir
-- [x] BUG: Download de PDFs das notas fiscais melhorado — adicionado retry automático, timeout aumentado, melhor logging
-- [x] BUG CRÍTICO: Quantidade de XMLs diferente de PDFs — garantir 100% de PDFs baixados junto com XMLs (implementado retry agressivo 5x com backoff exponencial + validação final XML vs PDF)
+- [ ] BUG CRÍTICO: "Apagar Tudo" não limpa tabela de notas fiscais - dados antigos permanecem nos relatórios após reimportação
+- [ ] Manual do Usuário PDF com ilustrações (incluindo CT-e e todas funcionalidades)
+- [ ] Manual Técnico do Sistema PDF (documentação técnica completa)
+- [ ] Script de vídeo para Veed.io (funcionalidades e vantagens do Pegasus)
