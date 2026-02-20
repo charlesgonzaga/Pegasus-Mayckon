@@ -12,9 +12,9 @@ import { extractPfxCertAndKey, downloadAllDocuments, decodeXml, getDanfseUrl, fe
 import { storagePut } from "./storage";
 import { runDownloadEngine, getDownloadConfig, getCircuitBreaker, type DownloadTask } from "./download-engine";
 import { cteRouter } from "./cte-routers";
+// import bcrypt from "bcryptjs"; // Removido: usar senhas simples
 import { nanoid } from "nanoid";
 import { sdk } from "./_core/sdk";
-import { hashPassword, verifyPassword } from "./password";
 import { notas, certificados, clientes, contabilidades, downloadLogs, agendamentos, planos } from "../drizzle/schema";
 
 // ─── Role-based procedures ──────────────────────────────────────────
@@ -755,7 +755,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Este e-mail já está cadastrado" });
-        const passwordHash = await hashPassword(input.password);
+        const passwordHash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         const allUsers = await db.getAllUsers();
         const isFirstUser = allUsers.length === 0;
@@ -778,12 +778,8 @@ export const appRouter = router({
         const user = await db.getUserByEmail(input.email);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (!user.ativo) throw new TRPCError({ code: "FORBIDDEN", message: "Conta desativada. Entre em contato com o administrador." });
-        const { valid, needsRehash } = await verifyPassword(input.password, user.passwordHash);
+        const valid = input.password === user.passwordHash; // Comparacao simples
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
-        if (needsRehash) {
-          const upgradedHash = await hashPassword(input.password);
-          await db.updateUserPassword(user.id, upgradedHash);
-        }
         // If contabilidade user, check if contabilidade is active
         if (user.role === "contabilidade" && user.contabilidadeId) {
           const contab = await db.getContabilidadeById(user.contabilidadeId);
@@ -807,9 +803,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const user = await db.getUserByOpenId(ctx.user.openId);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "BAD_REQUEST" });
-        const { valid } = await verifyPassword(input.currentPassword, user.passwordHash);
+        const valid = input.currentPassword === user.passwordHash; // Comparacao simples
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta" });
-        const newHash = await hashPassword(input.newPassword);
+        const newHash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(user.id, newHash);
         return { success: true };
       }),
@@ -900,7 +896,7 @@ export const appRouter = router({
         });
 
         // Create user account for contabilidade
-        const passwordHash = await hashPassword(input.senhaContabilidade);
+        const passwordHash = input.senhaContabilidade; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -936,7 +932,7 @@ export const appRouter = router({
         await db.updateContabilidade(id, data);
         // Se nova senha fornecida, atualizar senha do usuário vinculado
         if (novaSenha) {
-          const hash = await hashPassword(novaSenha);
+          const hash = novaSenha; // Senha simples, sem hash
           // Buscar usuário vinculado à contabilidade
           const allUsers = await db.getAllUsers();
           const contabUser = allUsers.find(u => u.contabilidadeId === id && u.role === "contabilidade");
@@ -964,11 +960,7 @@ export const appRouter = router({
 
     // ─── Gestão de Usuários ────────────────────────────────────────
     listUsers: adminProcedure.query(async () => {
-      const users = await db.getAllUsers();
-      return users.map(u => {
-        const { passwordHash, ...safe } = u as any;
-        return safe;
-      });
+      return db.getAllUsers();
     }),
     updateUserRole: adminProcedure
       .input(z.object({
@@ -989,7 +981,7 @@ export const appRouter = router({
     resetPassword: adminProcedure
       .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
       .mutation(async ({ input }) => {
-        const hash = await hashPassword(input.newPassword);
+        const hash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),
@@ -1005,7 +997,7 @@ export const appRouter = router({
         // Verificar se email já existe
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const hash = await hashPassword(input.password);
+        const hash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -1337,7 +1329,7 @@ export const appRouter = router({
         const contabId = await getContabilidadeId(ctx.user);
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const passwordHash = await hashPassword(input.password);
+        const passwordHash = input.password; // Senha simples, sem hash
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId, name: input.name, email: input.email, passwordHash,
@@ -1442,7 +1434,7 @@ export const appRouter = router({
         const targetUser = await db.getUserById(input.userId);
         if (!targetUser || targetUser.contabilidadeId !== contabId)
           throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado" });
-        const hash = await hashPassword(input.newPassword);
+        const hash = input.newPassword; // Senha simples, sem hash
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),
