@@ -15,19 +15,26 @@ export async function createContext(
   let user: User | null = null;
 
   try {
-    // ONLY use Authorization Bearer token - ignore cookies completely
+    let session: { openId: string; appId: string; name: string } | null = null;
+
+    // Prefer Authorization Bearer token (compatibilidade com client atual)
     const authHeader = opts.req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.slice(7);
-      const session = await sdk.verifySession(token);
-      if (session) {
-        const dbUser = await db.getUserByOpenId(session.openId);
-        if (dbUser) {
-          user = dbUser;
-        }
+      session = await sdk.verifySession(token);
+    }
+
+    // Fallback para cookie HTTP-only emitido no login/register
+    if (!session) {
+      session = await sdk.verifySessionFromRequest(opts.req);
+    }
+
+    if (session) {
+      const dbUser = await db.getUserByOpenId(session.openId);
+      if (dbUser) {
+        user = dbUser;
       }
     }
-    // No cookie fallback - Bearer token is the only auth method
   } catch (error) {
     user = null;
   }
