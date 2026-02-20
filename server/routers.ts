@@ -12,10 +12,22 @@ import { extractPfxCertAndKey, downloadAllDocuments, decodeXml, getDanfseUrl, fe
 import { storagePut } from "./storage";
 import { runDownloadEngine, getDownloadConfig, getCircuitBreaker, type DownloadTask } from "./download-engine";
 import { cteRouter } from "./cte-routers";
-// import bcrypt from "bcryptjs"; // Removido: usar senhas simples
+import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { sdk } from "./_core/sdk";
 import { notas, certificados, clientes, contabilidades, downloadLogs, agendamentos, planos } from "../drizzle/schema";
+
+function isBcryptHash(value: string): boolean {
+  return /^\$2[aby]\$/.test(value);
+}
+
+async function verifyPassword(plainPassword: string, storedPasswordHash: string): Promise<boolean> {
+  if (isBcryptHash(storedPasswordHash)) {
+    return bcrypt.compare(plainPassword, storedPasswordHash);
+  }
+
+  return plainPassword === storedPasswordHash;
+}
 
 // ─── Role-based procedures ──────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -755,7 +767,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Este e-mail já está cadastrado" });
-        const passwordHash = input.password; // Senha simples, sem hash
+        const passwordHash = await bcrypt.hash(input.password, 10);
         const openId = `local_${nanoid(24)}`;
         const allUsers = await db.getAllUsers();
         const isFirstUser = allUsers.length === 0;
@@ -778,7 +790,7 @@ export const appRouter = router({
         const user = await db.getUserByEmail(input.email);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (!user.ativo) throw new TRPCError({ code: "FORBIDDEN", message: "Conta desativada. Entre em contato com o administrador." });
-        const valid = input.password === user.passwordHash; // Comparacao simples
+        const valid = await verifyPassword(input.password, user.passwordHash);
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         // If contabilidade user, check if contabilidade is active
         if (user.role === "contabilidade" && user.contabilidadeId) {
@@ -803,9 +815,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const user = await db.getUserByOpenId(ctx.user.openId);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "BAD_REQUEST" });
-        const valid = input.currentPassword === user.passwordHash; // Comparacao simples
+        const valid = await verifyPassword(input.currentPassword, user.passwordHash);
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta" });
-        const newHash = input.newPassword; // Senha simples, sem hash
+        const newHash = await bcrypt.hash(input.newPassword, 10);
         await db.updateUserPassword(user.id, newHash);
         return { success: true };
       }),
