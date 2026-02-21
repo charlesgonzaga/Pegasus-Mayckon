@@ -1,24 +1,34 @@
 /**
  * Módulo de marca d'água para relatórios PDF (pdfkit)
- * Adiciona a logo Pegasus NFe como marca d'água centralizada em cada página
+ * Adiciona a logo Pegasus NFe como marca d'água centralizada em cada página.
+ * A imagem é carregada localmente de ./pegasus_storage/watermark.png
+ * Se o arquivo não existir, a marca d'água é simplesmente ignorada.
  */
 
-const WATERMARK_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/120657398/zeSfPAVustBlhKcZ.png";
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Caminho local da imagem de marca d'água (coloque watermark.png na pasta pegasus_storage)
+const WATERMARK_LOCAL_PATH = path.resolve(process.cwd(), 'pegasus_storage', 'watermark.png');
 
 let cachedWatermark: Buffer | null = null;
 
 /**
- * Baixa e cacheia a imagem da marca d'água
+ * Carrega e cacheia a imagem da marca d'água do disco local.
+ * Retorna null se o arquivo não existir (marca d'água desabilitada).
  */
 async function getWatermarkBuffer(): Promise<Buffer | null> {
   if (cachedWatermark) return cachedWatermark;
   try {
-    const resp = await globalThis.fetch(WATERMARK_URL);
-    if (!resp.ok) return null;
-    cachedWatermark = Buffer.from(await resp.arrayBuffer());
+    if (!fs.existsSync(WATERMARK_LOCAL_PATH)) {
+      // Arquivo não encontrado - marca d'água desabilitada (comportamento normal)
+      return null;
+    }
+    cachedWatermark = fs.readFileSync(WATERMARK_LOCAL_PATH);
+    console.log("[Watermark] Imagem carregada de", WATERMARK_LOCAL_PATH);
     return cachedWatermark;
   } catch (e) {
-    console.error("Erro ao baixar marca d'água:", e);
+    console.error("Erro ao carregar marca d'água local:", e);
     return null;
   }
 }

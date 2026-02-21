@@ -12,22 +12,10 @@ import { extractPfxCertAndKey, downloadAllDocuments, decodeXml, getDanfseUrl, fe
 import { storagePut } from "./storage";
 import { runDownloadEngine, getDownloadConfig, getCircuitBreaker, type DownloadTask } from "./download-engine";
 import { cteRouter } from "./cte-routers";
-import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { sdk } from "./_core/sdk";
+import { hashPassword, verifyPassword } from "./password";
 import { notas, certificados, clientes, contabilidades, downloadLogs, agendamentos, planos } from "../drizzle/schema";
-
-function isBcryptHash(value: string): boolean {
-  return /^\$2[aby]\$/.test(value);
-}
-
-async function verifyPassword(plainPassword: string, storedPasswordHash: string): Promise<boolean> {
-  if (isBcryptHash(storedPasswordHash)) {
-    return bcrypt.compare(plainPassword, storedPasswordHash);
-  }
-
-  return plainPassword === storedPasswordHash;
-}
 
 // ─── Role-based procedures ──────────────────────────────────────────
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -767,7 +755,7 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Este e-mail já está cadastrado" });
-        const passwordHash = await bcrypt.hash(input.password, 10);
+        const passwordHash = await hashPassword(input.password);
         const openId = `local_${nanoid(24)}`;
         const allUsers = await db.getAllUsers();
         const isFirstUser = allUsers.length === 0;
@@ -787,11 +775,19 @@ export const appRouter = router({
     login: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
+        console.log('[LOGIN] Tentativa de login:', input.email);
         const user = await db.getUserByEmail(input.email);
+        console.log('[LOGIN] Usuário encontrado:', user ? `ID ${user.id}, email ${user.email}, hash: ${user.passwordHash?.substring(0, 20)}...` : 'NÃO ENCONTRADO');
         if (!user || !user.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (!user.ativo) throw new TRPCError({ code: "FORBIDDEN", message: "Conta desativada. Entre em contato com o administrador." });
-        const valid = await verifyPassword(input.password, user.passwordHash);
+        console.log('[LOGIN] Verificando senha. Input:', input.password, 'Hash:', user.passwordHash);
+        const { valid, needsRehash } = await verifyPassword(input.password, user.passwordHash);
+        console.log('[LOGIN] Resultado verificação:', { valid, needsRehash });
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
+        if (needsRehash) {
+          const upgradedHash = await hashPassword(input.password);
+          await db.updateUserPassword(user.id, upgradedHash);
+        }
         // If contabilidade user, check if contabilidade is active
         if (user.role === "contabilidade" && user.contabilidadeId) {
           const contab = await db.getContabilidadeById(user.contabilidadeId);
@@ -815,9 +811,9 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const user = await db.getUserByOpenId(ctx.user.openId);
         if (!user || !user.passwordHash) throw new TRPCError({ code: "BAD_REQUEST" });
-        const valid = await verifyPassword(input.currentPassword, user.passwordHash);
+        const { valid } = await verifyPassword(input.currentPassword, user.passwordHash);
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "Senha atual incorreta" });
-        const newHash = await bcrypt.hash(input.newPassword, 10);
+        const newHash = await hashPassword(input.newPassword);
         await db.updateUserPassword(user.id, newHash);
         return { success: true };
       }),
@@ -908,7 +904,7 @@ export const appRouter = router({
         });
 
         // Create user account for contabilidade
-        const passwordHash = input.senhaContabilidade; // Senha simples, sem hash
+        const passwordHash = await hashPassword(input.senhaContabilidade);
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -944,7 +940,7 @@ export const appRouter = router({
         await db.updateContabilidade(id, data);
         // Se nova senha fornecida, atualizar senha do usuário vinculado
         if (novaSenha) {
-          const hash = novaSenha; // Senha simples, sem hash
+          const hash = await hashPassword(novaSenha);
           // Buscar usuário vinculado à contabilidade
           const allUsers = await db.getAllUsers();
           const contabUser = allUsers.find(u => u.contabilidadeId === id && u.role === "contabilidade");
@@ -972,7 +968,11 @@ export const appRouter = router({
 
     // ─── Gestão de Usuários ────────────────────────────────────────
     listUsers: adminProcedure.query(async () => {
-      return db.getAllUsers();
+      const users = await db.getAllUsers();
+      return users.map(u => {
+        const { passwordHash, ...safe } = u as any;
+        return safe;
+      });
     }),
     updateUserRole: adminProcedure
       .input(z.object({
@@ -993,7 +993,7 @@ export const appRouter = router({
     resetPassword: adminProcedure
       .input(z.object({ userId: z.number(), newPassword: z.string().min(6) }))
       .mutation(async ({ input }) => {
-        const hash = input.newPassword; // Senha simples, sem hash
+        const hash = await hashPassword(input.newPassword);
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),
@@ -1009,7 +1009,7 @@ export const appRouter = router({
         // Verificar se email já existe
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const hash = input.password; // Senha simples, sem hash
+        const hash = await hashPassword(input.password);
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId,
@@ -1341,7 +1341,7 @@ export const appRouter = router({
         const contabId = await getContabilidadeId(ctx.user);
         const existing = await db.getUserByEmail(input.email);
         if (existing) throw new TRPCError({ code: "CONFLICT", message: "Já existe um usuário com este e-mail" });
-        const passwordHash = input.password; // Senha simples, sem hash
+        const passwordHash = await hashPassword(input.password);
         const openId = `local_${nanoid(24)}`;
         await db.upsertUser({
           openId, name: input.name, email: input.email, passwordHash,
@@ -1446,7 +1446,7 @@ export const appRouter = router({
         const targetUser = await db.getUserById(input.userId);
         if (!targetUser || targetUser.contabilidadeId !== contabId)
           throw new TRPCError({ code: "NOT_FOUND", message: "Usuário não encontrado" });
-        const hash = input.newPassword; // Senha simples, sem hash
+        const hash = await hashPassword(input.newPassword);
         await db.updateUserPassword(input.userId, hash);
         return { success: true };
       }),

@@ -1,8 +1,0 @@
-{
-  "query": "SELECT c.id, c.cliente_id, c.contabilidade_id, c.cnpj, c.ultimo_nsu, c.max_nsu, c.ultima_consulta FROM cte_nsu_control c LIMIT 20;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT c.id, c.cliente_id, c.contabilidade_id, c.cnpj, c.ultimo_nsu, c.max_nsu, c.ultima_consulta FROM cte_nsu_control c LIMIT 20;",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1054 (42S22) at line 1: Unknown column 'c.cliente_id' in 'field list'"
-  ]
-}

@@ -1,102 +1,77 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uses the Biz-provided storage proxy (Authorization: Bearer <token>)
+// Local file storage implementation (100% independent, no external dependencies)
+// Stores files in ./pegasus_storage/ relative to project root and serves via Express
 
-import { ENV } from './_core/env';
+import * as fs from 'fs';
+import * as path from 'path';
 
-type StorageConfig = { baseUrl: string; apiKey: string };
+// Base directory for all storage - relative to project root
+const STORAGE_BASE_DIR = path.resolve(process.cwd(), 'pegasus_storage');
 
-function getStorageConfig(): StorageConfig {
-  const baseUrl = ENV.forgeApiUrl;
-  const apiKey = ENV.forgeApiKey;
-
-  if (!baseUrl || !apiKey) {
-    throw new Error(
-      "Storage proxy credentials missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY"
-    );
-  }
-
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
-}
-
-function buildUploadUrl(baseUrl: string, relKey: string): URL {
-  const url = new URL("v1/storage/upload", ensureTrailingSlash(baseUrl));
-  url.searchParams.set("path", normalizeKey(relKey));
-  return url;
-}
-
-async function buildDownloadUrl(
-  baseUrl: string,
-  relKey: string,
-  apiKey: string
-): Promise<string> {
-  const downloadApiUrl = new URL(
-    "v1/storage/downloadUrl",
-    ensureTrailingSlash(baseUrl)
-  );
-  downloadApiUrl.searchParams.set("path", normalizeKey(relKey));
-  const response = await fetch(downloadApiUrl, {
-    method: "GET",
-    headers: buildAuthHeaders(apiKey),
-  });
-  return (await response.json()).url;
-}
-
-function ensureTrailingSlash(value: string): string {
-  return value.endsWith("/") ? value : `${value}/`;
+// Ensure storage directory exists
+if (!fs.existsSync(STORAGE_BASE_DIR)) {
+  fs.mkdirSync(STORAGE_BASE_DIR, { recursive: true });
 }
 
 function normalizeKey(relKey: string): string {
-  return relKey.replace(/^\/+/, "");
+  return relKey.replace(/^\/+/, '');
 }
 
-function toFormData(
-  data: Buffer | Uint8Array | string,
-  contentType: string,
-  fileName: string
-): FormData {
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
-  const form = new FormData();
-  form.append("file", blob, fileName || "file");
-  return form;
+function getFullPath(relKey: string): string {
+  const normalized = normalizeKey(relKey);
+  const fullPath = path.join(STORAGE_BASE_DIR, normalized);
+  
+  // Security: ensure path is within STORAGE_BASE_DIR
+  if (!fullPath.startsWith(STORAGE_BASE_DIR)) {
+    throw new Error('Invalid storage path');
+  }
+  
+  return fullPath;
 }
 
-function buildAuthHeaders(apiKey: string): HeadersInit {
-  return { Authorization: `Bearer ${apiKey}` };
+function getPublicUrl(relKey: string): string {
+  const normalized = normalizeKey(relKey);
+  return `/storage/${normalized}`;
 }
 
 export async function storagePut(
   relKey: string,
   data: Buffer | Uint8Array | string,
-  contentType = "application/octet-stream"
+  contentType = 'application/octet-stream'
 ): Promise<{ key: string; url: string }> {
-  const { baseUrl, apiKey } = getStorageConfig();
   const key = normalizeKey(relKey);
-  const uploadUrl = buildUploadUrl(baseUrl, key);
-  const formData = toFormData(data, contentType, key.split("/").pop() ?? key);
-  const response = await fetch(uploadUrl, {
-    method: "POST",
-    headers: buildAuthHeaders(apiKey),
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const message = await response.text().catch(() => response.statusText);
-    throw new Error(
-      `Storage upload failed (${response.status} ${response.statusText}): ${message}`
-    );
+  const fullPath = getFullPath(key);
+  
+  // Create directory if it doesn't exist
+  const dir = path.dirname(fullPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-  const url = (await response.json()).url;
+  
+  // Write file
+  if (typeof data === 'string') {
+    fs.writeFileSync(fullPath, data, 'utf8');
+  } else {
+    fs.writeFileSync(fullPath, Buffer.from(data));
+  }
+  
+  const url = getPublicUrl(key);
+  
   return { key, url };
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
-  const { baseUrl, apiKey } = getStorageConfig();
+export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return {
-    key,
-    url: await buildDownloadUrl(baseUrl, key, apiKey),
-  };
+  const fullPath = getFullPath(key);
+  
+  // Check if file exists
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`File not found: ${key}`);
+  }
+  
+  const url = getPublicUrl(key);
+  
+  return { key, url };
 }
+
+// Export STORAGE_BASE_DIR for use in Express static middleware
+export { STORAGE_BASE_DIR };

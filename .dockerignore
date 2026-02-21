@@ -1,0 +1,60 @@
+# Dependências (serão instaladas no container)
+node_modules
+.pnpm-store
+
+# Build output (será gerado nos stages do build)
+dist
+build
+
+# Git
+.git
+.gitignore
+.gitkeep
+
+# Ambiente local (nunca enviar para o container!)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs locais (não pertencem à imagem)
+*.log
+.manus-logs
+.manus
+
+# Documentação (desnecessária no container)
+docs/
+*.md
+*.pdf
+*.xlsx
+*.txt
+
+# Arquivos de teste
+*.test.ts
+test-*.mjs
+vitest.config.ts
+
+# Debug/Dev
+debug_notes.txt
+check-db.mjs
+seed-admin.mjs
+
+# Docker (evitar loop de cópia)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Storage local (deve ser montado como volume, não copiado para a imagem)
+pegasus_storage/
+
+# Backups
+backups/
