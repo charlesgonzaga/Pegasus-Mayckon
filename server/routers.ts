@@ -775,10 +775,14 @@ export const appRouter = router({
     login: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string().min(1) }))
       .mutation(async ({ ctx, input }) => {
+        console.log('[LOGIN] Tentativa de login:', input.email);
         const user = await db.getUserByEmail(input.email);
+        console.log('[LOGIN] Usuário encontrado:', user ? `ID ${user.id}, email ${user.email}, hash: ${user.passwordHash?.substring(0, 20)}...` : 'NÃO ENCONTRADO');
         if (!user || !user.passwordHash) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (!user.ativo) throw new TRPCError({ code: "FORBIDDEN", message: "Conta desativada. Entre em contato com o administrador." });
+        console.log('[LOGIN] Verificando senha. Input:', input.password, 'Hash:', user.passwordHash);
         const { valid, needsRehash } = await verifyPassword(input.password, user.passwordHash);
+        console.log('[LOGIN] Resultado verificação:', { valid, needsRehash });
         if (!valid) throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha incorretos" });
         if (needsRehash) {
           const upgradedHash = await hashPassword(input.password);

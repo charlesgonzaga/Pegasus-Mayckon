@@ -1,8 +1,0 @@
-{
-  "query": "SELECT n.clienteId, c.razaoSocial, COUNT(*) as totalNotas FROM notas n INNER JOIN clientes c ON n.clienteId = c.id WHERE n.contabilidadeId = 2 AND n.status = 'valida' AND DATE_FORMAT(`notas`.`dataEmissao`, '%Y-%m') = '2026-02' GROUP BY n.clienteId, c.razaoSocial ORDER BY totalNotas DESC LIMIT 3;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3HdhHhoU3VLn73V.2659abed3564 --database 2ckaMFDgknxSWbaAs85a3h --execute SELECT n.clienteId, c.razaoSocial, COUNT(*) as totalNotas FROM notas n INNER JOIN clientes c ON n.clienteId = c.id WHERE n.contabilidadeId = 2 AND n.status = 'valida' AND DATE_FORMAT(`notas`.`dataEmissao`, '%Y-%m') = '2026-02' GROUP BY n.clienteId, c.razaoSocial ORDER BY totalNotas DESC LIMIT 3;",
-  "returncode": 1,
-  "logs": [
-    "ERROR 1054 (42S22) at line 1: Unknown column 'notas.dataemissao' in 'where clause'"
-  ]
-}

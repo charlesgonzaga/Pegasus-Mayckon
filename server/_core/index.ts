@@ -9,7 +9,13 @@ import { startScheduler, registerSchedulerExecutor } from "../scheduler";
 import { runDownloadEngine, getDownloadConfig } from "../download-engine";
 import * as db from "../db";
 import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+// serveStatic vem de um arquivo sem devDependencies (seguro em produção)
+import { serveStatic } from "./static";
+// setupVite é importado dinamicamente apenas em desenvolvimento (usa o vite, uma devDep)
+import { STORAGE_BASE_DIR } from "../storage";
+import { migrate } from "drizzle-orm/mysql2/migrator";
+import { getDb } from "../db";
+import path from "path";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,12 +36,36 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
   throw new Error(`No available port found starting from ${startPort}`);
 }
 
+/**
+ * Aplica migrations do Drizzle automaticamente no startup.
+ * Usa a API do drizzle-orm (produção), sem depender do drizzle-kit (devDep).
+ */
+async function runMigrations() {
+  try {
+    console.log("[Migrations] Aplicando migrations pendentes...");
+    const db = await getDb();
+    if (!db) {
+      console.warn("[Migrations] Banco de dados não disponível. Pulando migrations.");
+      return;
+    }
+    const migrationsFolder = path.resolve(import.meta.dirname, "../../drizzle");
+    await migrate(db as any, { migrationsFolder });
+    console.log("[Migrations] Migrations aplicadas com sucesso!");
+  } catch (err: any) {
+    console.error("[Migrations] Falha ao aplicar migrations:", err.message);
+    // Não encerra o processo — permite tentar subir mesmo assim
+  }
+}
+
 async function startServer() {
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Serve local storage files (100% local, no external dependencies)
+  app.use('/storage', express.static(STORAGE_BASE_DIR));
+
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   // tRPC API
@@ -46,8 +76,10 @@ async function startServer() {
       createContext,
     })
   );
-  // development mode uses Vite, production mode uses static files
+  // Desenvolvimento: usa Vite (devDep, carregado dinamicamente para não entrar no bundle)
+  // Produção: usa serveStatic de static.ts (sem devDeps)
   if (process.env.NODE_ENV === "development") {
+    const { setupVite } = await import("./vite.js");
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -173,96 +205,96 @@ async function startServer() {
 
       // ─── Executar download de NFe ────────────────────────────────
       if (tipo === "nfe" || tipo === "ambos") {
-      if (clienteId) {
-        // Download de um cliente específico
-        const cliente = await db.getClienteById(clienteId);
-        if (!cliente) {
-          console.error(`[Scheduler] Cliente ${clienteId} não encontrado`);
-          return;
-        }
-        const logId = await db.createDownloadLog({
-          clienteId: cliente.id, contabilidadeId: contabId,
-          clienteNome: cliente.razaoSocial, clienteCnpj: cliente.cnpj,
-          tipo: "agendado", status: "pendente",
-          etapa: "Agendamento automático - aguardando...",
-          modo: isPeriodo ? "periodo" : "novas",
-          competenciaInicio: input.competenciaInicio || null,
-          competenciaFim: input.competenciaFim || null,
-          periodoDataInicio: input.dataInicio || null,
-          periodoDataFim: input.dataFim || null,
-        });
-        // No modo "novas" (incremental), remover logs sem notas novas
-        const removeLogSeVazio = !isPeriodo;
-        await processClienteDownload(
-          { id: cliente.id, cnpj: cliente.cnpj, razaoSocial: cliente.razaoSocial },
-          contabId, isPeriodo, input, logId, removeLogSeVazio,
-        );
-      } else {
-        // Download de TODOS os clientes da contabilidade
-        // EXATAMENTE a mesma lógica do executeForAll no routers.ts
-        const allClientes = await db.getClientesByContabilidade(contabId);
-        const clientesList: typeof allClientes = [];
-        for (const c of allClientes) {
-          const { cert, vencido } = await db.getCertificadoAtivoValido(c.id);
-          if (cert && !vencido) clientesList.push(c);
-        }
-
-        // Deduplicar por CNPJ
-        const cnpjsSeen = new Set<string>();
-        const clientesUnicos: typeof clientesList = [];
-        for (const c of clientesList) {
-          const cnpjNorm = c.cnpj.replace(/\D/g, '');
-          if (!cnpjsSeen.has(cnpjNorm)) {
-            cnpjsSeen.add(cnpjNorm);
-            clientesUnicos.push(c);
+        if (clienteId) {
+          // Download de um cliente específico
+          const cliente = await db.getClienteById(clienteId);
+          if (!cliente) {
+            console.error(`[Scheduler] Cliente ${clienteId} não encontrado`);
+            return;
           }
-        }
-
-        if (clientesUnicos.length === 0) {
-          console.log(`[Scheduler] Nenhum cliente com certificado válido na contabilidade ${contabId}`);
-          return;
-        }
-
-        console.log(`[Scheduler] Iniciando download para ${clientesUnicos.length} empresa(s) da contabilidade ${contabId}`);
-
-        // PASSO 1: Criar TODOS os logs como "pendente" imediatamente (igual executeForAll)
-        const logIds: Array<{ clienteId: number; cnpj: string; razaoSocial: string; logId: number }> = [];
-        for (const cliente of clientesUnicos) {
           const logId = await db.createDownloadLog({
             clienteId: cliente.id, contabilidadeId: contabId,
             clienteNome: cliente.razaoSocial, clienteCnpj: cliente.cnpj,
             tipo: "agendado", status: "pendente",
-            etapa: "Agendamento automático - aguardando na fila...",
+            etapa: "Agendamento automático - aguardando...",
             modo: isPeriodo ? "periodo" : "novas",
             competenciaInicio: input.competenciaInicio || null,
             competenciaFim: input.competenciaFim || null,
             periodoDataInicio: input.dataInicio || null,
             periodoDataFim: input.dataFim || null,
           });
-          logIds.push({ clienteId: cliente.id, cnpj: cliente.cnpj, razaoSocial: cliente.razaoSocial, logId });
+          // No modo "novas" (incremental), remover logs sem notas novas
+          const removeLogSeVazio = !isPeriodo;
+          await processClienteDownload(
+            { id: cliente.id, cnpj: cliente.cnpj, razaoSocial: cliente.razaoSocial },
+            contabId, isPeriodo, input, logId, removeLogSeVazio,
+          );
+        } else {
+          // Download de TODOS os clientes da contabilidade
+          // EXATAMENTE a mesma lógica do executeForAll no routers.ts
+          const allClientes = await db.getClientesByContabilidade(contabId);
+          const clientesList: typeof allClientes = [];
+          for (const c of allClientes) {
+            const { cert, vencido } = await db.getCertificadoAtivoValido(c.id);
+            if (cert && !vencido) clientesList.push(c);
+          }
+
+          // Deduplicar por CNPJ
+          const cnpjsSeen = new Set<string>();
+          const clientesUnicos: typeof clientesList = [];
+          for (const c of clientesList) {
+            const cnpjNorm = c.cnpj.replace(/\D/g, '');
+            if (!cnpjsSeen.has(cnpjNorm)) {
+              cnpjsSeen.add(cnpjNorm);
+              clientesUnicos.push(c);
+            }
+          }
+
+          if (clientesUnicos.length === 0) {
+            console.log(`[Scheduler] Nenhum cliente com certificado válido na contabilidade ${contabId}`);
+            return;
+          }
+
+          console.log(`[Scheduler] Iniciando download para ${clientesUnicos.length} empresa(s) da contabilidade ${contabId}`);
+
+          // PASSO 1: Criar TODOS os logs como "pendente" imediatamente (igual executeForAll)
+          const logIds: Array<{ clienteId: number; cnpj: string; razaoSocial: string; logId: number }> = [];
+          for (const cliente of clientesUnicos) {
+            const logId = await db.createDownloadLog({
+              clienteId: cliente.id, contabilidadeId: contabId,
+              clienteNome: cliente.razaoSocial, clienteCnpj: cliente.cnpj,
+              tipo: "agendado", status: "pendente",
+              etapa: "Agendamento automático - aguardando na fila...",
+              modo: isPeriodo ? "periodo" : "novas",
+              competenciaInicio: input.competenciaInicio || null,
+              competenciaFim: input.competenciaFim || null,
+              periodoDataInicio: input.dataInicio || null,
+              periodoDataFim: input.dataFim || null,
+            });
+            logIds.push({ clienteId: cliente.id, cnpj: cliente.cnpj, razaoSocial: cliente.razaoSocial, logId });
+          }
+
+          // PASSO 2: Processar usando Download Engine v2 (worker pool) - IGUAL executeForAll
+          const config = await getDownloadConfig();
+          const tasks = logIds.map(item => ({
+            clienteId: item.clienteId, cnpj: item.cnpj,
+            razaoSocial: item.razaoSocial, logId: item.logId,
+          }));
+
+          // No modo "novas" (incremental), remover logs sem notas novas para não poluir histórico
+          const removeLogSeVazioAll = !isPeriodo;
+          await runDownloadEngine(tasks, contabId, async (task) => {
+            const cliente = clientesUnicos.find(c => c.id === task.clienteId)!;
+            await processClienteDownload(cliente, contabId, isPeriodo, input, task.logId, removeLogSeVazioAll);
+          }, config);
+
+          // Auto-correção após todos terminarem (igual executeForAll)
+          const autoCorrecao = await db.getSetting("auto_correcao_pdf");
+          if (autoCorrecao === "true") {
+            console.log(`[Scheduler] Iniciando auto-correção para contabilidade ${contabId}`);
+          }
+          console.log(`[Scheduler] Download NFe concluído: ${clientesUnicos.length} empresa(s) processada(s)`);
         }
-
-        // PASSO 2: Processar usando Download Engine v2 (worker pool) - IGUAL executeForAll
-        const config = await getDownloadConfig();
-        const tasks = logIds.map(item => ({
-          clienteId: item.clienteId, cnpj: item.cnpj,
-          razaoSocial: item.razaoSocial, logId: item.logId,
-        }));
-
-        // No modo "novas" (incremental), remover logs sem notas novas para não poluir histórico
-        const removeLogSeVazioAll = !isPeriodo;
-        await runDownloadEngine(tasks, contabId, async (task) => {
-          const cliente = clientesUnicos.find(c => c.id === task.clienteId)!;
-          await processClienteDownload(cliente, contabId, isPeriodo, input, task.logId, removeLogSeVazioAll);
-        }, config);
-
-        // Auto-correção após todos terminarem (igual executeForAll)
-        const autoCorrecao = await db.getSetting("auto_correcao_pdf");
-        if (autoCorrecao === "true") {
-          console.log(`[Scheduler] Iniciando auto-correção para contabilidade ${contabId}`);
-        }
-        console.log(`[Scheduler] Download NFe concluído: ${clientesUnicos.length} empresa(s) processada(s)`);
-      }
       } // fim do if (tipo === "nfe" || tipo === "ambos")
     });
 
@@ -273,4 +305,5 @@ async function startServer() {
   });
 }
 
-startServer().catch(console.error);
+// Roda migrations automáticas e depois inicia o servidor
+runMigrations().then(() => startServer()).catch(console.error);

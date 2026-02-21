@@ -1,5 +1,5 @@
 services:
-  # ─── Banco de dados MySQL ──────────────────────────────────────────────
+  # ─── Banco de dados MySQL ──────────────────────────────────────────────────
   db:
     image: mysql:8.0
     restart: unless-stopped
@@ -23,7 +23,7 @@ services:
       retries: 10
       start_period: 30s
 
-  # ─── Aplicação Pegasus ─────────────────────────────────────────────────
+  # ─── Aplicação Pegasus ─────────────────────────────────────────────────────
   app:
     build:
       context: .
@@ -36,15 +36,15 @@ services:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
-      VITE_APP_ID: ${VITE_APP_ID:-}
-      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-}
-      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-}
-      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL:-}
-      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY:-}
+    volumes:
+      # Persistência dos arquivos gerados (XMLs, PDFs, ZIPs)
+      - pegasus_storage:/app/pegasus_storage
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   mysql_data:
+    driver: local
+  pegasus_storage:
     driver: local
