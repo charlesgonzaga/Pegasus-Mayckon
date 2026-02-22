@@ -3,24 +3,20 @@ import fs from "fs";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
 import path from "path";
+import { createServer as createViteServer } from "vite";
+import viteConfig from "../../vite.config";
 
-/**
- * Configura o servidor Vite para desenvolvimento (hot reload, HMR, etc).
- * ATENÇÃO: este arquivo usa 'vite' como devDependency.
- * É importado DINAMICAMENTE em index.ts apenas quando NODE_ENV=development,
- * garantindo que nunca seja carregado em produção.
- */
 export async function setupVite(app: Express, server: Server) {
-  // Import dinâmico: 'vite' é devDependency e não existe em produção
-  const { createServer: createViteServer } = await import("vite");
+  const serverOptions = {
+    middlewareMode: true,
+    hmr: { server },
+    allowedHosts: true as const,
+  };
 
   const vite = await createViteServer({
-    configFile: path.resolve(import.meta.dirname, "../../vite.config.ts"),
-    server: {
-      middlewareMode: true,
-      hmr: { server },
-      allowedHosts: true as unknown as string[],
-    },
+    ...viteConfig,
+    configFile: false,
+    server: serverOptions,
     appType: "custom",
   });
 
@@ -36,7 +32,7 @@ export async function setupVite(app: Express, server: Server) {
         "index.html"
       );
 
-      // Sempre recarrega o arquivo index.html do disco para capturar mudanças
+      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
@@ -48,5 +44,24 @@ export async function setupVite(app: Express, server: Server) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
     }
+  });
+}
+
+export function serveStatic(app: Express) {
+  const distPath =
+    process.env.NODE_ENV === "development"
+      ? path.resolve(import.meta.dirname, "../..", "dist", "public")
+      : path.resolve(import.meta.dirname, "public");
+  if (!fs.existsSync(distPath)) {
+    console.error(
+      `Could not find the build directory: ${distPath}, make sure to build the client first`
+    );
+  }
+
+  app.use(express.static(distPath));
+
+  // fall through to index.html if the file doesn't exist
+  app.use("*", (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

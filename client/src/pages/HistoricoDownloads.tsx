@@ -330,6 +330,39 @@ export default function HistoricoDownloads() {
     });
   };
 
+  // Retomar somente PDFs
+  const retryPdfsMutation = trpc.download.retryPdfs.useMutation({
+    onSuccess: (data) => {
+      if (data.totalPdfs === 0) {
+        toast.info(data.message || "Todos os PDFs já foram baixados.");
+      } else {
+        toast.success(`Retomada de ${data.totalPdfs} PDF(s) iniciada para ${data.empresas} empresa(s)`);
+      }
+      utils.download.logs.invalidate();
+    },
+    onError: (err) => {
+      toast.error(`Erro ao retomar PDFs: ${err.message}`);
+    },
+  });
+
+  const cancelRetryPdfsMutation = trpc.download.cancelRetryPdfs.useMutation({
+    onSuccess: () => {
+      toast.success("Retomada de PDFs cancelada.");
+    },
+  });
+
+  // Status da retomada de PDFs (polling)
+  const { data: retryPdfsStatus } = trpc.settings.getRetryPdfsStatus.useQuery(
+    undefined,
+    { enabled: !!contabId, refetchInterval: 2000, placeholderData: (prev: any) => prev }
+  );
+
+  // Contagem de PDFs pendentes
+  const { data: pdfsPendentes } = trpc.settings.countPdfsPendentes.useQuery(
+    contabId ? { contabilidadeId: contabId } : undefined,
+    { enabled: !!contabId, refetchInterval: 10000, placeholderData: (prev: any) => prev }
+  );
+
   // Retomar todos com erro
   const retryAllMutation = trpc.download.retryAll.useMutation({
     onSuccess: (data) => {
@@ -544,6 +577,43 @@ export default function HistoricoDownloads() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            )}
+
+            {/* Botão Retomar PDFs - SEMPRE VISÍVEL */}
+            {retryPdfsStatus?.ativa ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800">
+                  <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
+                  <span className="text-sm text-orange-700 dark:text-orange-300">
+                    PDFs: {retryPdfsStatus.processados}/{retryPdfsStatus.total}
+                    {retryPdfsStatus.empresa && <span className="text-xs ml-1 opacity-70">({retryPdfsStatus.empresa})</span>}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 border-red-200 dark:border-red-800 text-red-600 hover:bg-red-50"
+                  onClick={() => contabId && cancelRetryPdfsMutation.mutate({ contabilidadeId: contabId })}
+                >
+                  <StopCircle className="h-3 w-3" />
+                  Parar
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+                onClick={() => contabId && retryPdfsMutation.mutate({ contabilidadeId: contabId })}
+                disabled={retryPdfsMutation.isPending}
+              >
+                {retryPdfsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileCheck className="h-4 w-4" />
+                )}
+                Retomar PDFs{(pdfsPendentes?.total ?? 0) > 0 ? ` (${pdfsPendentes?.total})` : ""}
+              </Button>
             )}
 
             {/* Botão Parar Todos */}
@@ -769,17 +839,17 @@ export default function HistoricoDownloads() {
                 {/* Grid principal de estatísticas */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-2.5">
                   {/* Total de Empresas */}
-                  <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-gray-200 dark:border-gray-700 text-center">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-slate-600 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Total</span>
+                      <Building2 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                      <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total</span>
                     </div>
-                    <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">{s.totalEmpresas ?? 0}</span>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">empresa(s)</p>
+                    <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{s.totalEmpresas ?? 0}</span>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">empresa(s)</p>
                   </div>
 
                   {/* Bem Sucedidos (com notas) */}
-                  <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-green-200 dark:border-green-800 text-center">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-green-200 dark:border-green-700/50 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
                       <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                       <span className="text-[10px] font-medium text-green-600 dark:text-green-400 uppercase tracking-wide">Sucesso</span>
@@ -789,46 +859,46 @@ export default function HistoricoDownloads() {
                   </div>
 
                   {/* Sem Notas */}
-                  <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-gray-200 dark:border-gray-700 text-center">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-slate-200 dark:border-slate-600 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <FileWarning className="h-4 w-4 text-gray-500 dark:text-gray-400 dark:text-gray-500" />
-                      <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-wide">Sem Notas</span>
+                      <FileWarning className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                      <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Sem Notas</span>
                     </div>
-                    <span className="text-2xl font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500">{s.semNotas ?? 0}</span>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">nenhuma nota</p>
+                    <span className="text-2xl font-bold text-slate-600 dark:text-slate-300">{s.semNotas ?? 0}</span>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">nenhuma nota</p>
                   </div>
 
                   {/* Com Erro (excluindo cert vencido) */}
-                  <div className={`bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border ${(s.errosSemCertVencido ?? 0) > 0 ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-700'} text-center`}>
+                  <div className={`bg-white dark:bg-white/5 rounded-lg p-3 border text-center ${(s.errosSemCertVencido ?? 0) > 0 ? 'border-red-200 dark:border-red-700/50' : 'border-slate-200 dark:border-slate-600'}`}>
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <XCircle className={`h-4 w-4 ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`} />
-                      <span className={`text-[10px] font-medium uppercase tracking-wide ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}>Erros</span>
+                      <XCircle className={`h-4 w-4 ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`} />
+                      <span className={`text-[10px] font-medium uppercase tracking-wide ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>Erros</span>
                     </div>
-                    <span className={`text-2xl font-bold ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-600' : 'text-gray-400 dark:text-gray-500'}`}>{s.errosSemCertVencido ?? 0}</span>
-                    <p className={`text-[10px] mt-0.5 ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>empresa(s)</p>
+                    <span className={`text-2xl font-bold ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-600 dark:text-red-300' : 'text-slate-400 dark:text-slate-500'}`}>{s.errosSemCertVencido ?? 0}</span>
+                    <p className={`text-[10px] mt-0.5 ${(s.errosSemCertVencido ?? 0) > 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}>empresa(s)</p>
                   </div>
 
                   {/* Cert Vencido */}
                   {(s.certVencidos ?? 0) > 0 && (
-                    <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-orange-200 dark:border-orange-800 text-center">
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-orange-200 dark:border-orange-700/50 text-center">
                       <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <ShieldX className="h-4 w-4 text-orange-500" />
-                        <span className="text-[10px] font-medium text-orange-500 uppercase tracking-wide">Cert. Venc.</span>
+                        <ShieldX className="h-4 w-4 text-orange-500 dark:text-orange-400" />
+                        <span className="text-[10px] font-medium text-orange-500 dark:text-orange-400 uppercase tracking-wide">Cert. Venc.</span>
                       </div>
-                      <span className="text-2xl font-bold text-orange-600">{s.certVencidos}</span>
-                      <p className="text-[10px] text-orange-500 mt-0.5">vencido(s)</p>
+                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-300">{s.certVencidos}</span>
+                      <p className="text-[10px] text-orange-500 dark:text-orange-400 mt-0.5">vencido(s)</p>
                     </div>
                   )}
 
                   {/* Ainda serão processados (retomando + pendentes + executando) */}
                   {(s.aindaSerao ?? 0) > 0 && (
-                    <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-purple-200 dark:border-purple-800 text-center">
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-purple-200 dark:border-purple-700/50 text-center">
                       <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <RefreshCw className="h-4 w-4 text-purple-600 animate-spin" />
-                        <span className="text-[10px] font-medium text-purple-600 uppercase tracking-wide">Restantes</span>
+                        <RefreshCw className="h-4 w-4 text-purple-500 dark:text-purple-400 animate-spin" />
+                        <span className="text-[10px] font-medium text-purple-500 dark:text-purple-400 uppercase tracking-wide">Restantes</span>
                       </div>
-                      <span className="text-2xl font-bold text-purple-700 dark:text-purple-400">{s.aindaSerao}</span>
-                      <p className="text-[10px] text-purple-500 mt-0.5">
+                      <span className="text-2xl font-bold text-purple-600 dark:text-purple-300">{s.aindaSerao}</span>
+                      <p className="text-[10px] text-purple-500 dark:text-purple-400 mt-0.5">
                         {(s.executando ?? 0) > 0 && `${s.executando} exec.`}
                         {(s.executando ?? 0) > 0 && (s.pendentes ?? 0) > 0 && " + "}
                         {(s.pendentes ?? 0) > 0 && `${s.pendentes} fila`}
@@ -839,23 +909,23 @@ export default function HistoricoDownloads() {
                   )}
 
                   {/* Total XMLs */}
-                  <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-blue-200 dark:border-blue-800 text-center">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-blue-200 dark:border-blue-700/50 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <FileCode2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide">XMLs</span>
+                      <FileCode2 className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                      <span className="text-[10px] font-medium text-blue-500 dark:text-blue-400 uppercase tracking-wide">XMLs</span>
                     </div>
-                    <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">{s.totalXmls ?? 0}</span>
-                    <p className="text-[10px] text-blue-500 mt-0.5">baixados</p>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-300">{s.totalXmls ?? 0}</span>
+                    <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5">baixados</p>
                   </div>
 
                   {/* Total PDFs */}
-                  <div className="bg-white dark:bg-white/5/80 dark:bg-white dark:bg-white/5 rounded-lg p-3 border border-emerald-200 dark:border-emerald-800 text-center">
+                  <div className="bg-white dark:bg-white/5 rounded-lg p-3 border border-emerald-200 dark:border-emerald-700/50 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-1">
-                      <FileText className="h-4 w-4 text-emerald-600" />
-                      <span className="text-[10px] font-medium text-emerald-600 uppercase tracking-wide">PDFs</span>
+                      <FileText className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+                      <span className="text-[10px] font-medium text-emerald-500 dark:text-emerald-400 uppercase tracking-wide">PDFs</span>
                     </div>
-                    <span className="text-2xl font-bold text-emerald-700">{s.totalPdfs ?? 0}</span>
-                    <p className="text-[10px] text-emerald-500 mt-0.5">baixados</p>
+                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-300">{s.totalPdfs ?? 0}</span>
+                    <p className="text-[10px] text-emerald-500 dark:text-emerald-400 mt-0.5">baixados</p>
                   </div>
                   {/* Gauge visual da Auto-Retomada */}
                   {autoRetomadaStatus?.ativa && autoRetomadaStatus.rodada && (
@@ -951,7 +1021,7 @@ export default function HistoricoDownloads() {
                       {retomandoCount} retomando
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 dark:text-amber-300 font-medium">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 font-medium">
                     <Clock className="h-3.5 w-3.5" />
                     {pendentesCards.length} na fila
                   </span>
@@ -1261,7 +1331,7 @@ export default function HistoricoDownloads() {
                                 </div>
                               ) : log.status === "pendente" ? (
                                 <div className="flex flex-col gap-0.5">
-                                  <span className="text-xs text-amber-600 font-medium">{log.etapa || 'Aguardando na fila...'}</span>
+                                  <span className="text-xs text-sky-600 dark:text-sky-400 font-medium">{log.etapa || 'Aguardando na fila...'}</span>
                                 </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
@@ -1297,7 +1367,7 @@ export default function HistoricoDownloads() {
                                   <RefreshCw className="h-3 w-3 animate-spin" />Retomando
                                 </Badge>
                               ) : log.status === "pendente" ? (
-                                <Badge className="bg-amber-100 text-amber-800 dark:text-amber-300 hover:bg-amber-100 gap-1">
+                                <Badge className="bg-sky-100 dark:bg-sky-500/20 text-sky-800 dark:text-sky-300 hover:bg-sky-100 gap-1">
                                   <Clock className="h-3 w-3" />Na Fila
                                 </Badge>
                               ) : (

@@ -385,6 +385,26 @@ export async function upsertNota(data: InsertNota) {
       tipoEvento: data.tipoEvento,
       ...(data.danfsePdfUrl ? { danfsePdfUrl: data.danfsePdfUrl } : {}),
       ...(data.danfsePdfKey ? { danfsePdfKey: data.danfsePdfKey } : {}),
+      // Campos IBS/CBS - atualizar se presentes
+      ...(data.temIbsCbs !== undefined ? { temIbsCbs: data.temIbsCbs } : {}),
+      ...(data.cstIbsCbs ? { cstIbsCbs: data.cstIbsCbs } : {}),
+      ...(data.cIndOp ? { cIndOp: data.cIndOp } : {}),
+      ...(data.finNFSe ? { finNFSe: data.finNFSe } : {}),
+      ...(data.vBcIbsCbs ? { vBcIbsCbs: data.vBcIbsCbs } : {}),
+      ...(data.aliqIbsUf ? { aliqIbsUf: data.aliqIbsUf } : {}),
+      ...(data.aliqIbsMun ? { aliqIbsMun: data.aliqIbsMun } : {}),
+      ...(data.aliqCbs ? { aliqCbs: data.aliqCbs } : {}),
+      ...(data.vIbsUf ? { vIbsUf: data.vIbsUf } : {}),
+      ...(data.vIbsMun ? { vIbsMun: data.vIbsMun } : {}),
+      ...(data.vCbs ? { vCbs: data.vCbs } : {}),
+      ...(data.vTotTribIbsCbs ? { vTotTribIbsCbs: data.vTotTribIbsCbs } : {}),
+      ...(data.indZfmalc !== undefined ? { indZfmalc: data.indZfmalc } : {}),
+      ...(data.vPis ? { vPis: data.vPis } : {}),
+      ...(data.vCofins ? { vCofins: data.vCofins } : {}),
+      ...(data.cstPisCofins ? { cstPisCofins: data.cstPisCofins } : {}),
+      ...(data.pDifUf ? { pDifUf: data.pDifUf } : {}),
+      ...(data.pDifMun ? { pDifMun: data.pDifMun } : {}),
+      ...(data.pDifCbs ? { pDifCbs: data.pDifCbs } : {}),
       updatedAt: new Date(),
     }
   });
@@ -456,6 +476,7 @@ export async function getNotasByContabilidade(contabilidadeId: number, filters?:
   clienteId?: number;
   status?: string;
   direcao?: string;
+  ibsCbs?: string;
   dataInicio?: Date;
   dataFim?: Date;
   busca?: string;
@@ -471,12 +492,26 @@ export async function getNotasByContabilidade(contabilidadeId: number, filters?:
   if (filters?.direcao) conditions.push(eq(notas.direcao, filters.direcao as any));
   if (filters?.dataInicio) conditions.push(gte(notas.dataEmissao, filters.dataInicio));
   if (filters?.dataFim) conditions.push(lte(notas.dataEmissao, filters.dataFim));
+  // Filtro IBS/CBS
+  if (filters?.ibsCbs === "comIbsCbs") {
+    conditions.push(eq(notas.temIbsCbs, true));
+  } else if (filters?.ibsCbs === "comIbs") {
+    conditions.push(or(gt(notas.vIbsUf, "0"), gt(notas.vIbsMun, "0"))!);
+  } else if (filters?.ibsCbs === "comCbs") {
+    conditions.push(gt(notas.vCbs, "0"));
+  } else if (filters?.ibsCbs === "semIbsCbs") {
+    conditions.push(or(eq(notas.temIbsCbs, false), isNull(notas.temIbsCbs))!);
+  }
   if (filters?.busca) {
     conditions.push(or(
       like(notas.emitenteNome, `%${filters.busca}%`),
       like(notas.tomadorNome, `%${filters.busca}%`),
       like(notas.chaveAcesso, `%${filters.busca}%`),
       like(notas.emitenteCnpj, `%${filters.busca}%`),
+      like(notas.tomadorCnpj, `%${filters.busca}%`),
+      like(notas.numeroNota, `%${filters.busca}%`),
+      like(notas.municipioPrestacao, `%${filters.busca}%`),
+      like(notas.valorServico, `%${filters.busca}%`),
     )!);
   }
 
@@ -533,6 +568,25 @@ export async function getNotasForRelatorio(contabilidadeId: number, filters?: {
     municipioPrestacao: notas.municipioPrestacao,
     chaveAcesso: notas.chaveAcesso,
     xmlOriginal: notas.xmlOriginal,
+    // Campos IBS/CBS (Reforma Tributária)
+    temIbsCbs: notas.temIbsCbs,
+    cstIbsCbs: notas.cstIbsCbs,
+    cIndOp: notas.cIndOp,
+    finNFSe: notas.finNFSe,
+    vBcIbsCbs: notas.vBcIbsCbs,
+    aliqIbsUf: notas.aliqIbsUf,
+    aliqIbsMun: notas.aliqIbsMun,
+    aliqCbs: notas.aliqCbs,
+    vIbsUf: notas.vIbsUf,
+    vIbsMun: notas.vIbsMun,
+    vCbs: notas.vCbs,
+    vTotTribIbsCbs: notas.vTotTribIbsCbs,
+    vPis: notas.vPis,
+    vCofins: notas.vCofins,
+    cstPisCofins: notas.cstPisCofins,
+    pDifUf: notas.pDifUf,
+    pDifMun: notas.pDifMun,
+    pDifCbs: notas.pDifCbs,
   }).from(notas)
     .where(and(...conditions))
     .orderBy(desc(notas.dataEmissao));
@@ -1512,6 +1566,25 @@ export async function getDownloadLogsComErrosPdf(contabilidadeId: number) {
       gt(downloadLogs.errosPdf, 0),
     ))
     .orderBy(desc(downloadLogs.createdAt));
+}
+
+// Contagem REAL de XMLs e PDFs de um cliente na tabela notas
+export async function getContagemReaisCliente(clienteId: number, contabilidadeId: number) {
+  const db = await getDb();
+  if (!db) return { totalXml: 0, totalPdf: 0 };
+  const result = await db.select({
+    totalXml: sql<number>`COUNT(*)`,
+    totalPdf: sql<number>`SUM(CASE WHEN ${notas.danfsePdfUrl} IS NOT NULL AND ${notas.danfsePdfUrl} != '' THEN 1 ELSE 0 END)`,
+  }).from(notas)
+    .where(and(
+      eq(notas.clienteId, clienteId),
+      eq(notas.contabilidadeId, contabilidadeId),
+      eq(notas.tipoDocumento, "NFSE"),
+    ));
+  return {
+    totalXml: Number(result[0]?.totalXml ?? 0),
+    totalPdf: Number(result[0]?.totalPdf ?? 0),
+  };
 }
 
 // Buscar notas de um cliente que não têm PDF (tipoDocumento = NFSE e sem danfsePdfUrl)

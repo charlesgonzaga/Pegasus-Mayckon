@@ -100,10 +100,26 @@ const sheetColumns = [
   { header: "Trib. Municipais Aprox.", key: "tribMunicipais", width: 18 },
   { header: "Tem Retenção", key: "temRetencao", width: 14 },
   { header: "Status", key: "status", width: 12 },
+  // Colunas IBS/CBS (Reforma Tributária 2026)
+  { header: "IBS/CBS", key: "temIbsCbs", width: 10 },
+  { header: "CST IBS/CBS", key: "cstIbsCbs", width: 14 },
+  { header: "Base Cálc. IBS/CBS", key: "vBcIbsCbs", width: 18 },
+  { header: "Alíq. IBS UF (%)", key: "aliqIbsUf", width: 16 },
+  { header: "Alíq. IBS Mun (%)", key: "aliqIbsMun", width: 16 },
+  { header: "Alíq. CBS (%)", key: "aliqCbs", width: 14 },
+  { header: "IBS UF", key: "vIbsUf", width: 14 },
+  { header: "IBS Municipal", key: "vIbsMun", width: 14 },
+  { header: "CBS", key: "vCbs", width: 14 },
+  { header: "Total IBS+CBS", key: "vTotTribIbsCbs", width: 16 },
+  { header: "PIS (IBS/CBS)", key: "vPisIbsCbs", width: 14 },
+  { header: "COFINS (IBS/CBS)", key: "vCofinsIbsCbs", width: 16 },
+  { header: "Dif. UF (%)", key: "pDifUf", width: 12 },
+  { header: "Dif. Mun (%)", key: "pDifMun", width: 12 },
+  { header: "Dif. CBS (%)", key: "pDifCbs", width: 12 },
 ];
 
 const moneyFmt = '#,##0.00';
-const moneyColumns = ['valorServico', 'bcIssqn', 'issqnApurado', 'issqnRetido', 'irrf', 'csll', 'pis', 'cofins', 'cp', 'totalRetFed', 'descontoInc', 'descontoCond', 'valorLiquido', 'tribFederais', 'tribEstaduais', 'tribMunicipais'];
+const moneyColumns = ['valorServico', 'bcIssqn', 'issqnApurado', 'issqnRetido', 'irrf', 'csll', 'pis', 'cofins', 'cp', 'totalRetFed', 'descontoInc', 'descontoCond', 'valorLiquido', 'tribFederais', 'tribEstaduais', 'tribMunicipais', 'vBcIbsCbs', 'vIbsUf', 'vIbsMun', 'vCbs', 'vTotTribIbsCbs', 'vPisIbsCbs', 'vCofinsIbsCbs'];
 
 function buildRowData(nota: NotaComXml): Record<string, any> {
   const r = nota.raw;
@@ -145,6 +161,22 @@ function buildRowData(nota: NotaComXml): Record<string, any> {
     tribMunicipais: r?.tributosMunicipais || 0,
     temRetencao: r?.temRetencao ? "Sim" : r ? "Não" : "",
     status: statusMap[nota.status] ?? nota.status,
+    // Campos IBS/CBS (lidos do banco - já extraídos do XML)
+    temIbsCbs: (nota as any).temIbsCbs ? "Sim" : "-",
+    cstIbsCbs: (nota as any).cstIbsCbs || "",
+    vBcIbsCbs: parseFloat((nota as any).vBcIbsCbs ?? "0") || 0,
+    aliqIbsUf: parseFloat((nota as any).aliqIbsUf ?? "0") || 0,
+    aliqIbsMun: parseFloat((nota as any).aliqIbsMun ?? "0") || 0,
+    aliqCbs: parseFloat((nota as any).aliqCbs ?? "0") || 0,
+    vIbsUf: parseFloat((nota as any).vIbsUf ?? "0") || 0,
+    vIbsMun: parseFloat((nota as any).vIbsMun ?? "0") || 0,
+    vCbs: parseFloat((nota as any).vCbs ?? "0") || 0,
+    vTotTribIbsCbs: parseFloat((nota as any).vTotTribIbsCbs ?? "0") || 0,
+    vPisIbsCbs: parseFloat((nota as any).vPis ?? "0") || 0,
+    vCofinsIbsCbs: parseFloat((nota as any).vCofins ?? "0") || 0,
+    pDifUf: parseFloat((nota as any).pDifUf ?? "0") || 0,
+    pDifMun: parseFloat((nota as any).pDifMun ?? "0") || 0,
+    pDifCbs: parseFloat((nota as any).pDifCbs ?? "0") || 0,
   };
 }
 

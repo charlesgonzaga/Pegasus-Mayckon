@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { trpc } from "@/lib/trpc";
-import { FileText, Search, Eye, FileCode, ChevronLeft, ChevronRight, Filter, X, Trash2, AlertTriangle, Download, Loader2, Package, Maximize2, Minimize2 } from "lucide-react";
+import { FileText, Search, Eye, FileCode, ChevronLeft, ChevronRight, Filter, X, Trash2, AlertTriangle, Download, Loader2, Package, Maximize2, Minimize2, Landmark } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 
@@ -37,18 +37,21 @@ export default function Notas() {
     clienteId: "all",
     status: "all",
     direcao: "all",
+    ibsCbs: "all",
     busca: "",
     dataInicio: "",
     dataFim: "",
   });
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 25;
+  const [showIbsCbs, setShowIbsCbs] = useState(false);
 
   const queryFilters = useMemo(() => ({
     contabilidadeId: contabId,
     clienteId: filters.clienteId !== "all" ? parseInt(filters.clienteId) : undefined,
     status: filters.status !== "all" ? filters.status : undefined,
     direcao: filters.direcao !== "all" ? filters.direcao : undefined,
+    ibsCbs: filters.ibsCbs !== "all" ? filters.ibsCbs : undefined,
     busca: filters.busca || undefined,
     dataInicio: filters.dataInicio ? new Date(filters.dataInicio) : undefined,
     dataFim: filters.dataFim ? new Date(filters.dataFim + "T23:59:59") : undefined,
@@ -443,11 +446,11 @@ export default function Notas() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   const clearFilters = () => {
-    setFilters({ clienteId: "all", status: "all", direcao: "all", busca: "", dataInicio: "", dataFim: "" });
+    setFilters({ clienteId: "all", status: "all", direcao: "all", ibsCbs: "all", busca: "", dataInicio: "", dataFim: "" });
     setPage(0);
   };
 
-  const hasFilters = filters.clienteId !== "all" || filters.status !== "all" || filters.direcao !== "all" || filters.busca || filters.dataInicio || filters.dataFim;
+  const hasFilters = filters.clienteId !== "all" || filters.status !== "all" || filters.direcao !== "all" || filters.ibsCbs !== "all" || filters.busca || filters.dataInicio || filters.dataFim;
 
   const selectedClienteName = filters.clienteId !== "all"
     ? clientesList?.find(c => String(c.id) === filters.clienteId)?.razaoSocial || "Cliente"
@@ -502,6 +505,15 @@ export default function Notas() {
               </Button>
             </div>
             <Button
+              variant={showIbsCbs ? "default" : "outline"}
+              size="sm"
+              className={showIbsCbs ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-emerald-600 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:bg-emerald-500/10"}
+              onClick={() => setShowIbsCbs(!showIbsCbs)}
+            >
+              <Landmark className="h-4 w-4 mr-1" />
+              IBS/CBS
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               className="text-red-600 border-red-200 dark:border-red-800 hover:bg-red-50 dark:bg-red-500/10"
@@ -537,7 +549,7 @@ export default function Notas() {
                 </Button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
               <Select value={filters.clienteId} onValueChange={(v) => { setFilters({ ...filters, clienteId: v }); setPage(0); }}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Cliente" />
@@ -588,11 +600,24 @@ export default function Notas() {
                 placeholder="Data fim"
               />
 
-              <div className="relative">
+              <Select value={filters.ibsCbs} onValueChange={(v) => { setFilters({ ...filters, ibsCbs: v }); setPage(0); }}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="IBS/CBS" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="comIbsCbs">Com IBS/CBS</SelectItem>
+                  <SelectItem value="comIbs">Com IBS</SelectItem>
+                  <SelectItem value="comCbs">Com CBS</SelectItem>
+                  <SelectItem value="semIbsCbs">Sem IBS/CBS</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="relative col-span-2 md:col-span-1">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   className="h-9 text-sm pl-8"
-                  placeholder="Buscar..."
+                  placeholder="Empresa, CNPJ, cidade, UF, nº nota, valor..."
                   value={filters.busca}
                   onChange={(e) => { setFilters({ ...filters, busca: e.target.value }); setPage(0); }}
                 />
@@ -615,17 +640,29 @@ export default function Notas() {
                     <TableHead>Emissão</TableHead>
                     <TableHead>Direção</TableHead>
                     <TableHead>Status</TableHead>
+                    {showIbsCbs && (
+                      <>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">IBS/CBS</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">Base Cálc.</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">IBS UF</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">IBS Mun</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">CBS</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">Total Trib.</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">PIS</TableHead>
+                        <TableHead className="text-emerald-600 dark:text-emerald-400">COFINS</TableHead>
+                      </>
+                    )}
                     <TableHead className="w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell>
+                      <TableCell colSpan={showIbsCbs ? 16 : 8} className="text-center py-8 text-muted-foreground">Carregando...</TableCell>
                     </TableRow>
                   ) : !data || data.notas.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={showIbsCbs ? 16 : 8} className="text-center py-12">
                         <FileText className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
                         <p className="font-medium">Nenhuma nota encontrada</p>
                         <p className="text-sm text-muted-foreground mt-1">Ajuste os filtros ou faça download de notas.</p>
@@ -662,6 +699,24 @@ export default function Notas() {
                             {n.status === "valida" ? "Válida" : n.status === "cancelada" ? "Cancelada" : "Substituída"}
                           </Badge>
                         </TableCell>
+                        {showIbsCbs && (
+                          <>
+                            <TableCell>
+                              {(n as any).temIbsCbs ? (
+                                <Badge className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 text-xs">Sim</Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vBcIbsCbs ? formatCurrency((n as any).vBcIbsCbs) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vIbsUf ? formatCurrency((n as any).vIbsUf) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vIbsMun ? formatCurrency((n as any).vIbsMun) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vCbs ? formatCurrency((n as any).vCbs) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono font-bold">{(n as any).vTotTribIbsCbs ? formatCurrency((n as any).vTotTribIbsCbs) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vPis ? formatCurrency((n as any).vPis) : "-"}</TableCell>
+                            <TableCell className="text-sm font-mono">{(n as any).vCofins ? formatCurrency((n as any).vCofins) : "-"}</TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <div className="flex gap-1">
                             <Button

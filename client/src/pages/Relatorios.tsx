@@ -32,6 +32,8 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  Landmark,
+  Scale,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import {
@@ -327,6 +329,50 @@ function NotaDetailModal({ nota, open, onClose }: { nota: NotaRelatorio | null; 
                   <InfoRow label="Tributos Federais Aprox." value={x?.tributosFederais} />
                   <InfoRow label="Tributos Estaduais Aprox." value={x?.tributosEstaduais} />
                   <InfoRow label="Tributos Municipais Aprox." value={x?.tributosMunicipais} />
+                </CardContent>
+              </Card>
+
+              {/* Card IBS/CBS - Reforma Tributária */}
+              <Card className="md:col-span-2 border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Scale className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    Reforma Tributária — IBS / CBS
+                    {(x?.ibsCbsPresente || (nota as any).temIbsCbs) ? (
+                      <Badge className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[10px] ml-2">Presente</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] ml-2 text-muted-foreground">Aguardando vigência</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-0">
+                  {(x?.ibsCbsPresente || (nota as any).temIbsCbs) ? (
+                    <>
+                      <InfoRow label="CST IBS/CBS" value={x?.cstIbsCbs || (nota as any).cstIbsCbs} />
+                      <InfoRow label="Base de Cálculo IBS/CBS" value={x?.ibsCbsBaseCalculo || ((nota as any).vBcIbsCbs ? formatCurrency(Number((nota as any).vBcIbsCbs)) : null)} />
+                      <Separator className="my-2" />
+                      <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 py-1">IBS — Imposto sobre Bens e Serviços</div>
+                      <InfoRow label="Alíquota IBS UF (Estadual)" value={x?.ibsCbsAliqIbsUf || ((nota as any).aliqIbsUf ? `${Number((nota as any).aliqIbsUf).toFixed(4)}%` : null)} />
+                      <InfoRow label="Valor IBS UF" value={x?.ibsCbsVIbsUf || ((nota as any).vIbsUf ? formatCurrency(Number((nota as any).vIbsUf)) : null)} highlight={Number((nota as any).vIbsUf || 0) > 0} />
+                      <InfoRow label="Alíquota IBS Municipal" value={x?.ibsCbsAliqIbsMun || ((nota as any).aliqIbsMun ? `${Number((nota as any).aliqIbsMun).toFixed(4)}%` : null)} />
+                      <InfoRow label="Valor IBS Municipal" value={x?.ibsCbsVIbsMun || ((nota as any).vIbsMun ? formatCurrency(Number((nota as any).vIbsMun)) : null)} highlight={Number((nota as any).vIbsMun || 0) > 0} />
+                      <Separator className="my-2" />
+                      <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 py-1">CBS — Contribuição sobre Bens e Serviços</div>
+                      <InfoRow label="Alíquota CBS (Federal)" value={x?.ibsCbsAliqCbs || ((nota as any).aliqCbs ? `${Number((nota as any).aliqCbs).toFixed(4)}%` : null)} />
+                      <InfoRow label="Valor CBS" value={x?.ibsCbsVCbs || ((nota as any).vCbs ? formatCurrency(Number((nota as any).vCbs)) : null)} highlight={Number((nota as any).vCbs || 0) > 0} />
+                      <Separator className="my-2" />
+                      <div className="flex justify-between items-center py-2 px-2 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Total IBS + CBS</span>
+                        <span className="text-sm font-bold text-blue-700 dark:text-blue-300">{x?.ibsCbsVTotalIbsCbs || ((nota as any).vTotTribIbsCbs ? formatCurrency(Number((nota as any).vTotTribIbsCbs)) : "-")}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-6 text-center">
+                      <Scale className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Dados IBS/CBS não disponíveis nesta nota.</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Os campos serão preenchidos automaticamente quando a API Nacional passar a enviar os dados da Reforma Tributária (IBS/CBS).</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

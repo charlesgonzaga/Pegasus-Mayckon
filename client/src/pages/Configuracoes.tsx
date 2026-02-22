@@ -19,7 +19,7 @@ import {
   Settings, Database, Trash2, AlertTriangle, Loader2, Users, Shield,
   UserPlus, Pencil, Key, Power, PowerOff, Eye, EyeOff, Building2,
   Clock, FileText, History, Lock, Check, Download, Filter, X, Save, LayoutDashboard, Zap, Sparkles, RotateCcw,
-  Truck, FileDown, ClipboardList
+  Truck, FileDown, ClipboardList, FileCheck, Landmark
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -125,6 +125,15 @@ export default function Configuracoes() {
   const [pularPdfErro, setPularPdfErro] = useState(false);
   const [retomadaInfinita, setRetomadaInfinita] = useState(false);
   const [modoPersonalizado, setModoPersonalizado] = useState(false);
+
+  // Auto-Retomada PDFs state
+  const [retryPdfsAuto, setRetryPdfsAuto] = useState(false);
+  const [retryPdfsMaxTentativas, setRetryPdfsMaxTentativas] = useState("3");
+  const [retryPdfsTempoEspera, setRetryPdfsTempoEspera] = useState("00:05:00");
+
+  // IBS/CBS Reforma Tributária state
+  const [ibsCbsAtivo, setIbsCbsAtivo] = useState(true);
+  const [ibsCbsRelatorios, setIbsCbsRelatorios] = useState(true);
 
   // CT-e Auto-Retomada state
   const [autoCorrecaoCte, setAutoCorrecaoCte] = useState(false);
@@ -454,6 +463,45 @@ export default function Configuracoes() {
     onSuccess: () => { toast.success("Configuração de retomada infinita salva!"); },
     onError: (err: any) => { toast.error(err.message || "Erro ao salvar"); },
   });
+
+  // Auto-Retomada PDFs queries/mutations
+  const retryPdfsConfigQuery = trpc.settings.getRetryPdfsConfig.useQuery(undefined, { enabled: isContador });
+  useEffect(() => {
+    if (retryPdfsConfigQuery.data) {
+      setRetryPdfsAuto(retryPdfsConfigQuery.data.autoRetomada);
+      setRetryPdfsMaxTentativas(retryPdfsConfigQuery.data.maxTentativas);
+      setRetryPdfsTempoEspera(retryPdfsConfigQuery.data.tempoEspera);
+    }
+  }, [retryPdfsConfigQuery.data]);
+  const saveRetryPdfsConfig = trpc.settings.setRetryPdfsConfig.useMutation({
+    onSuccess: () => { toast.success("Configuração de retomada de PDFs salva!"); },
+    onError: (err: any) => { toast.error(err.message || "Erro ao salvar"); },
+  });
+
+  // IBS/CBS Config queries/mutations
+  const ibsCbsConfigQuery = trpc.settings.get.useQuery({ chave: "ibscbs_ativo" }, { enabled: isContador });
+  const ibsCbsRelatoriosQuery = trpc.settings.get.useQuery({ chave: "ibscbs_relatorios" }, { enabled: isContador });
+  useEffect(() => {
+    if (ibsCbsConfigQuery.data?.valor !== undefined) setIbsCbsAtivo(ibsCbsConfigQuery.data.valor === "true");
+  }, [ibsCbsConfigQuery.data]);
+  useEffect(() => {
+    if (ibsCbsRelatoriosQuery.data?.valor !== undefined) setIbsCbsRelatorios(ibsCbsRelatoriosQuery.data.valor === "true");
+  }, [ibsCbsRelatoriosQuery.data]);
+  const saveIbsCbsConfig = trpc.settings.updateMultiple.useMutation({
+    onSuccess: () => { toast.success("Configura\u00e7\u00e3o IBS/CBS salva!"); },
+    onError: (err: any) => { toast.error(err.message || "Erro ao salvar"); },
+  });
+  // Wrapper para simplificar chamada
+  const saveIbsCbsConfigWrapped = {
+    mutate: (data: { ativo: boolean; exibirRelatorios: boolean }) => {
+      saveIbsCbsConfig.mutate({
+        settings: [
+          { chave: "ibscbs_ativo", valor: String(data.ativo) },
+          { chave: "ibscbs_relatorios", valor: String(data.exibirRelatorios) },
+        ],
+      });
+    },
+  };
 
   // CT-e Auto-Retomada queries/mutations
   const autoCorrecaoCteQuery = trpc.settings.getAutoCorrecaoCte.useQuery(undefined, { enabled: isContador });
@@ -1486,6 +1534,153 @@ export default function Configuracoes() {
                           </div>
                         </div>
                       )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Card 6: Auto-Retomada PDFs */}
+                  <Card className="flex flex-col">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FileCheck className="h-4 w-4 text-orange-500" />
+                        Auto-Retomada PDFs
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Retomar automaticamente o download de PDFs (DANFSe) que falharam.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium">
+                            {retryPdfsAuto ? "Ativado" : "Desativado"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {retryPdfsAuto ? "Retomada automática de PDFs ativa" : "Sem retomada de PDFs"}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={retryPdfsAuto}
+                          onCheckedChange={(checked) => {
+                            setRetryPdfsAuto(checked);
+                            saveRetryPdfsConfig.mutate({
+                              maxTentativas: retryPdfsMaxTentativas,
+                              autoRetomada: checked,
+                              tempoEspera: retryPdfsTempoEspera,
+                            });
+                          }}
+                        />
+                      </div>
+                      {/* Configuração de tentativas - sempre visível */}
+                      <div className="pt-3 border-t">
+                        <Label className="text-xs flex items-center gap-1.5 mb-1.5">
+                          <RotateCcw className="h-3 w-3 text-muted-foreground" />
+                          Tentativas por PDF
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={retryPdfsMaxTentativas}
+                            onValueChange={(val) => setRetryPdfsMaxTentativas(val)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 tentativa</SelectItem>
+                              <SelectItem value="3">3 tentativas</SelectItem>
+                              <SelectItem value="5">5 tentativas</SelectItem>
+                              <SelectItem value="10">10 tentativas</SelectItem>
+                              <SelectItem value="20">20 tentativas</SelectItem>
+                              <SelectItem value="infinito">Infinito</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={() => saveRetryPdfsConfig.mutate({
+                              maxTentativas: retryPdfsMaxTentativas,
+                              autoRetomada: retryPdfsAuto,
+                              tempoEspera: retryPdfsTempoEspera,
+                            })}
+                            disabled={saveRetryPdfsConfig.isPending}
+                          >
+                            {saveRetryPdfsConfig.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {retryPdfsMaxTentativas === "infinito"
+                            ? "Tentará até conseguir baixar todos os PDFs"
+                            : `Tentará ${retryPdfsMaxTentativas}x cada PDF com falha`}
+                        </p>
+                        {retryPdfsMaxTentativas === "infinito" && (
+                          <div className="mt-2 p-2 rounded-md bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-800">
+                            <p className="text-[10px] text-orange-700 dark:text-orange-300">
+                              O sistema continuará tentando baixar os PDFs indefinidamente até que todos sejam obtidos com sucesso.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Card 7: IBS/CBS - Reforma Tributária */}
+                  <Card className="flex flex-col">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Landmark className="h-4 w-4 text-emerald-500" />
+                        IBS/CBS - Reforma Tributária
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Exibir campos IBS e CBS nos relatórios e telas quando disponíveis nas notas.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-medium">
+                            {ibsCbsAtivo ? "Ativado" : "Desativado"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {ibsCbsAtivo ? "Campos IBS/CBS visíveis nos relatórios" : "Campos IBS/CBS ocultos nos relatórios"}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={ibsCbsAtivo}
+                          onCheckedChange={(checked) => {
+                            setIbsCbsAtivo(checked);
+                            saveIbsCbsConfigWrapped.mutate({ ativo: checked, exibirRelatorios: ibsCbsRelatorios });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-medium">Incluir nos Relatórios Excel/PDF</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Adiciona colunas IBS UF, IBS Mun, CBS e Total nos relatórios exportados.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={ibsCbsRelatorios}
+                            onCheckedChange={(checked) => {
+                              setIbsCbsRelatorios(checked);
+                              saveIbsCbsConfigWrapped.mutate({ ativo: ibsCbsAtivo, exibirRelatorios: checked });
+                            }}
+                          />
+                        </div>
+                        <div className="p-2 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800">
+                          <p className="text-[10px] text-emerald-700 dark:text-emerald-300">
+                            <strong>Reforma Tributária 2026:</strong> O sistema detecta automaticamente notas com IBS/CBS no XML. Quando a API Nacional começar a enviar notas nesse formato, os campos serão preenchidos automaticamente.
+                          </p>
+                        </div>
+                        <div className="mt-2 text-[10px] text-muted-foreground space-y-1">
+                          <p><strong>IBS UF</strong> — Substitui ICMS (estadual)</p>
+                          <p><strong>IBS Mun</strong> — Substitui ISS (municipal)</p>
+                          <p><strong>CBS</strong> — Substitui PIS/COFINS (federal)</p>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
 

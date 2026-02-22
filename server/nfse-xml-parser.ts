@@ -102,6 +102,18 @@ export interface NfseCompleta {
   temRetencaoIssqn: boolean;
   temRetencaoFederal: boolean;
   temRetencao: boolean;
+
+  // IBS/CBS (Reforma Tributária)
+  ibsCbsPresente: boolean;
+  cstIbsCbs: string;
+  ibsCbsBaseCalculo: string;
+  ibsCbsAliqIbsUf: string;
+  ibsCbsAliqIbsMun: string;
+  ibsCbsAliqCbs: string;
+  ibsCbsVIbsUf: string;
+  ibsCbsVIbsMun: string;
+  ibsCbsVCbs: string;
+  ibsCbsVTotalIbsCbs: string;
 }
 
 /**
@@ -342,6 +354,17 @@ export interface NfseCompletaRaw extends Omit<NfseCompleta,
   tributosFederais: number;
   tributosEstaduais: number;
   tributosMunicipais: number;
+
+  // IBS/CBS (Reforma Tributária)
+  ibsCbsPresente: boolean;
+  ibsCbsBaseCalculo: number;
+  ibsCbsAliqIbsUf: number;
+  ibsCbsAliqIbsMun: number;
+  ibsCbsAliqCbs: number;
+  ibsCbsVIbsUf: number;
+  ibsCbsVIbsMun: number;
+  ibsCbsVCbs: number;
+  ibsCbsVTotalIbsCbs: number;
 }
 
 export function parseNfseXmlCompletoRaw(xml: string, clienteCnpj?: string): NfseCompletaRaw {
@@ -377,6 +400,17 @@ export function parseNfseXmlCompletoRaw(xml: string, clienteCnpj?: string): Nfse
     tributosFederais: toNum(parsed.tributosFederais),
     tributosEstaduais: toNum(parsed.tributosEstaduais),
     tributosMunicipais: toNum(parsed.tributosMunicipais),
+
+    // IBS/CBS
+    ibsCbsPresente: parsed.ibsCbsPresente,
+    ibsCbsBaseCalculo: toNum(parsed.ibsCbsBaseCalculo),
+    ibsCbsAliqIbsUf: toAliq(parsed.ibsCbsAliqIbsUf),
+    ibsCbsAliqIbsMun: toAliq(parsed.ibsCbsAliqIbsMun),
+    ibsCbsAliqCbs: toAliq(parsed.ibsCbsAliqCbs),
+    ibsCbsVIbsUf: toNum(parsed.ibsCbsVIbsUf),
+    ibsCbsVIbsMun: toNum(parsed.ibsCbsVIbsMun),
+    ibsCbsVCbs: toNum(parsed.ibsCbsVCbs),
+    ibsCbsVTotalIbsCbs: toNum(parsed.ibsCbsVTotalIbsCbs),
   };
 }
 
@@ -585,5 +619,36 @@ export function parseNfseXmlCompleto(xml: string, clienteCnpj?: string): NfseCom
     temRetencaoIssqn,
     temRetencaoFederal,
     temRetencao: temRetencaoIssqn || temRetencaoFederal,
+
+    // IBS/CBS (Reforma Tributária) - extrair do grupo IBSCBS/gIBSCBS quando presente
+    ...(() => {
+      const ibsCbsSection = getSection(xml, "IBSCBS") || getSection(xml, "ibscbs") || "";
+      const gIbsCbs = getSection(ibsCbsSection, "gIBSCBS") || getSection(ibsCbsSection, "gibscbs") || ibsCbsSection;
+      const cst = getTag(ibsCbsSection, "CST") || getTag(gIbsCbs, "CST") || "";
+      const vBC = getTag(gIbsCbs, "vBC") || getTag(ibsCbsSection, "vBC") || "";
+      // Alíquotas efetivas
+      const aliqIbsUf = getTag(gIbsCbs, "pAliqEfetRegIBSUF") || getTag(ibsCbsSection, "pAliqEfetRegIBSUF") || getTag(gIbsCbs, "pAliqIBSUF") || "";
+      const aliqIbsMun = getTag(gIbsCbs, "pAliqEfetRegIBSMun") || getTag(ibsCbsSection, "pAliqEfetRegIBSMun") || getTag(gIbsCbs, "pAliqIBSMun") || "";
+      const aliqCbs = getTag(gIbsCbs, "pAliqEfetRegCBS") || getTag(ibsCbsSection, "pAliqEfetRegCBS") || getTag(gIbsCbs, "pAliqCBS") || "";
+      // Valores
+      const vIbsUf = getTag(gIbsCbs, "vTribRegIBSUF") || getTag(ibsCbsSection, "vTribRegIBSUF") || getTag(gIbsCbs, "vIBSUF") || "";
+      const vIbsMun = getTag(gIbsCbs, "vTribRegIBSMun") || getTag(ibsCbsSection, "vTribRegIBSMun") || getTag(gIbsCbs, "vIBSMun") || "";
+      const vCbs = getTag(gIbsCbs, "vTribRegCBS") || getTag(ibsCbsSection, "vTribRegCBS") || getTag(gIbsCbs, "vCBS") || "";
+      // Total
+      const vTotal = getTag(gIbsCbs, "vTotIBSCBS") || getTag(ibsCbsSection, "vTotIBSCBS") || "";
+      const presente = !!(cst || vBC || vIbsUf || vIbsMun || vCbs || vTotal);
+      return {
+        ibsCbsPresente: presente,
+        cstIbsCbs: cst,
+        ibsCbsBaseCalculo: formatMoney(vBC),
+        ibsCbsAliqIbsUf: aliqIbsUf ? `${parseFloat(aliqIbsUf).toFixed(4)}%` : "",
+        ibsCbsAliqIbsMun: aliqIbsMun ? `${parseFloat(aliqIbsMun).toFixed(4)}%` : "",
+        ibsCbsAliqCbs: aliqCbs ? `${parseFloat(aliqCbs).toFixed(4)}%` : "",
+        ibsCbsVIbsUf: formatMoney(vIbsUf),
+        ibsCbsVIbsMun: formatMoney(vIbsMun),
+        ibsCbsVCbs: formatMoney(vCbs),
+        ibsCbsVTotalIbsCbs: formatMoney(vTotal || (presente ? String(parseFloat(vIbsUf || "0") + parseFloat(vIbsMun || "0") + parseFloat(vCbs || "0")) : "")),
+      };
+    })(),
   };
 }

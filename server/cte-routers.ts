@@ -9,6 +9,7 @@ import { storagePut } from "./storage";
 import { gerarRelatorioCteExcel } from "./cte-excel-report";
 import { generateDactePdf } from "./cte-dacte";
 import { checkPermissao } from "./routers";
+import { sanitizeErrorMessage } from "./error-sanitizer";
 
 // ─── Role-based procedures ──────────────────────────────────────────
 const contabilidadeProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -211,7 +212,7 @@ async function autoRetomarCteDownloadsComErro(contabId: number) {
         } catch (error: any) {
           console.error(`[CT-e Auto-Retomada] Erro cliente ${task.clienteId}:`, error);
           await db.updateCteDownloadLog(task.logId, {
-            status: "erro", erro: error.message, finalizadoEm: new Date(),
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
             etapa: "Erro na retomada",
           });
         }
@@ -538,7 +539,7 @@ export const cteRouter = router({
           console.error(`[CT-e] Erro no download para cliente ${input.clienteId}:`, error);
           await db.updateCteDownloadLog(logId, {
             status: "erro",
-            erro: error.message || "Erro desconhecido",
+            erro: sanitizeErrorMessage(error.message),
             finalizadoEm: new Date(),
             etapa: "Erro no download",
           });
@@ -679,13 +680,14 @@ export const cteRouter = router({
         } catch (error: any) {
           console.error(`[CT-e] Erro download cliente ${cliente.id}:`, error);
           await db.updateCteDownloadLog(logId, {
-            status: "erro", erro: error.message, finalizadoEm: new Date(),
-            etapa: "Erro",
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
+            etapa: "Erro na retomada",
           });
         }
         // Sempre processar o próximo após terminar (sucesso ou erro)
         return processNext();
       };
+
 
       // Iniciar workers concorrentes - cada um processa a fila sequencialmente
       const workers = [];
@@ -859,7 +861,7 @@ export const cteRouter = router({
         } catch (error: any) {
           console.error(`[CT-e Update] Erro cliente ${cliente.id}:`, error);
           await db.updateCteDownloadLog(logId, {
-            status: "erro", erro: error.message, finalizadoEm: new Date(),
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
             etapa: "Erro na atualização",
           });
         }
@@ -1355,7 +1357,7 @@ export const cteRouter = router({
         } catch (error: any) {
           console.error(`[CT-e Retry] Erro:`, error);
           await db.updateCteDownloadLog(input.logId, {
-            status: "erro", erro: error.message, finalizadoEm: new Date(),
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
             etapa: "Erro na retomada",
           });
         }
@@ -1477,7 +1479,7 @@ export const cteRouter = router({
         } catch (error: any) {
           console.error(`[CT-e RetryAll] Erro cliente ${log.clienteId}:`, error);
           await db.updateCteDownloadLog(log.id, {
-            status: "erro", erro: error.message, finalizadoEm: new Date(),
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
             etapa: "Erro na retomada",
           });
         }
@@ -1983,8 +1985,8 @@ export async function executeCteDownloadForScheduler(
     } catch (error: any) {
       console.error(`[CT-e Scheduler] Erro download cliente ${cliente.id}:`, error);
       await db.updateCteDownloadLog(logId, {
-        status: "erro", erro: error.message, finalizadoEm: new Date(),
-        etapa: "Erro",
+            status: "erro", erro: sanitizeErrorMessage(error.message), finalizadoEm: new Date(),
+            etapa: "Erro",
       });
     }
     return processNext();

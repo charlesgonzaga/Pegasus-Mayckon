@@ -2,7 +2,7 @@
 node_modules
 .pnpm-store
 
-# Build output (será gerado nos stages do build)
+# Build output (será gerado no container)
 dist
 build
 
@@ -11,7 +11,7 @@ build
 .gitignore
 .gitkeep
 
-# Ambiente local (nunca enviar para o container!)
+# Ambiente local
 .env
 .env.local
 .env.*.local
@@ -26,13 +26,11 @@ build
 .DS_Store
 Thumbs.db
 
-# Logs locais (não pertencem à imagem)
+# Logs
 *.log
 .manus-logs
-.manus
 
-# Documentação (desnecessária no container)
-docs/
+# Documentação (não necessária no container)
 *.md
 *.pdf
 *.xlsx
@@ -44,17 +42,12 @@ test-*.mjs
 vitest.config.ts
 
 # Debug/Dev
+.manus
 debug_notes.txt
 check-db.mjs
 seed-admin.mjs
 
-# Docker (evitar loop de cópia)
+# Docker (evitar loop)
 Dockerfile
 docker-compose.yml
 .dockerignore
-
-# Storage local (deve ser montado como volume, não copiado para a imagem)
-pegasus_storage/
-
-# Backups
-backups/

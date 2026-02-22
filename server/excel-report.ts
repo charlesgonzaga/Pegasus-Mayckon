@@ -110,6 +110,18 @@ const COLUNAS_COMPLETAS = [
 
   // Informações Complementares
   { header: "Informações Complementares", key: "informacoesComplementares", width: 60 },
+
+  // IBS/CBS (Reforma Tributária)
+  { header: "IBS/CBS", key: "ibsCbsPresente", width: 10 },
+  { header: "CST IBS/CBS", key: "cstIbsCbs", width: 14 },
+  { header: "Base Cálc. IBS/CBS", key: "ibsCbsBaseCalculo", width: 18, numFmt: "#,##0.00" },
+  { header: "Alíq. IBS UF (%)", key: "ibsCbsAliqIbsUf", width: 16, numFmt: "#,##0.0000" },
+  { header: "Alíq. IBS Mun (%)", key: "ibsCbsAliqIbsMun", width: 16, numFmt: "#,##0.0000" },
+  { header: "Alíq. CBS (%)", key: "ibsCbsAliqCbs", width: 14, numFmt: "#,##0.0000" },
+  { header: "IBS UF", key: "ibsCbsVIbsUf", width: 14, numFmt: "#,##0.00" },
+  { header: "IBS Mun", key: "ibsCbsVIbsMun", width: 14, numFmt: "#,##0.00" },
+  { header: "CBS", key: "ibsCbsVCbs", width: 14, numFmt: "#,##0.00" },
+  { header: "Total IBS/CBS", key: "ibsCbsVTotalIbsCbs", width: 16, numFmt: "#,##0.00" },
 ];
 
 // Colunas numéricas (para formatação e soma)
@@ -120,6 +132,8 @@ const COLUNAS_NUMERICAS = new Set([
   "totalTributacaoFederal", "descontoCondicionado", "issqnRetido",
   "irrfCpCsllRetidos", "pisCofinsRetidos", "valorLiquido",
   "tributosFederais", "tributosEstaduais", "tributosMunicipais",
+  "ibsCbsBaseCalculo", "ibsCbsAliqIbsUf", "ibsCbsAliqIbsMun", "ibsCbsAliqCbs",
+  "ibsCbsVIbsUf", "ibsCbsVIbsMun", "ibsCbsVCbs", "ibsCbsVTotalIbsCbs",
 ]);
 
 // Colunas para totalizar
@@ -130,6 +144,7 @@ const COLUNAS_TOTALIZAVEIS = new Set([
   "totalTributacaoFederal", "descontoCondicionado", "issqnRetido",
   "irrfCpCsllRetidos", "pisCofinsRetidos", "valorLiquido",
   "tributosFederais", "tributosEstaduais", "tributosMunicipais",
+  "ibsCbsBaseCalculo", "ibsCbsVIbsUf", "ibsCbsVIbsMun", "ibsCbsVCbs", "ibsCbsVTotalIbsCbs",
 ]);
 
 function parseNotaParaRow(nota: NotaDB, clienteCnpj?: string): Record<string, any> {
@@ -220,6 +235,18 @@ function parseNotaParaRow(nota: NotaDB, clienteCnpj?: string): Record<string, an
       temRetencaoFederal: parsed.temRetencaoFederal ? "Sim" : "Não",
 
       informacoesComplementares: parsed.informacoesComplementares,
+
+      // IBS/CBS (Reforma Tributária)
+      ibsCbsPresente: parsed.ibsCbsPresente ? "Sim" : "Não",
+      cstIbsCbs: parsed.cstIbsCbs,
+      ibsCbsBaseCalculo: parsed.ibsCbsBaseCalculo,
+      ibsCbsAliqIbsUf: parsed.ibsCbsAliqIbsUf,
+      ibsCbsAliqIbsMun: parsed.ibsCbsAliqIbsMun,
+      ibsCbsAliqCbs: parsed.ibsCbsAliqCbs,
+      ibsCbsVIbsUf: parsed.ibsCbsVIbsUf,
+      ibsCbsVIbsMun: parsed.ibsCbsVIbsMun,
+      ibsCbsVCbs: parsed.ibsCbsVCbs,
+      ibsCbsVTotalIbsCbs: parsed.ibsCbsVTotalIbsCbs,
     };
   }
 

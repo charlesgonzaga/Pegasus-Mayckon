@@ -48,6 +48,26 @@ export interface ParsedNfse {
   ufPrestacao?: string;
   status: "valida" | "cancelada" | "substituida";
   direcao: "emitida" | "recebida";
+  // Campos IBS/CBS (Reforma Tributaria 2026)
+  cstIbsCbs?: string;
+  cIndOp?: string;
+  finNFSe?: string;
+  vBcIbsCbs?: string;
+  aliqIbsUf?: string;
+  aliqIbsMun?: string;
+  aliqCbs?: string;
+  vIbsUf?: string;
+  vIbsMun?: string;
+  vCbs?: string;
+  vTotTribIbsCbs?: string;
+  indZfmalc?: number;
+  vPis?: string;
+  vCofins?: string;
+  cstPisCofins?: string;
+  pDifUf?: string;
+  pDifMun?: string;
+  pDifCbs?: string;
+  temIbsCbs?: boolean;
 }
 
 /**
@@ -295,6 +315,57 @@ export function parseNfseXml(xml: string, clienteCnpj: string): Partial<ParsedNf
     tomadorNome = nomeMatch?.[1] || "";
   }
 
+  // --- Extrair campos IBS/CBS (Reforma Tributaria 2026) ---
+  // Buscar bloco IBSCBS no XML
+  const ibsCbsBlock = xml.match(/<IBSCBS>(.*?)<\/IBSCBS>/is)?.[1] || "";
+  const gIbsCbsBlock = xml.match(/<gIBSCBS>(.*?)<\/gIBSCBS>/is)?.[1] || "";
+  const gDifBlock = xml.match(/<gDif>(.*?)<\/gDif>/is)?.[1] || "";
+  const pisCofinsBlock = xml.match(/<piscofins>(.*?)<\/piscofins>/is)?.[1] || "";
+  const totTribBlock = xml.match(/<totTrib>(.*?)<\/totTrib>/is)?.[1] || xml.match(/<totCIBS>(.*?)<\/totCIBS>/is)?.[1] || "";
+
+  // Helper para extrair tag de um bloco especifico
+  const getTagFrom = (block: string, tag: string): string => {
+    const regex = new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, "i");
+    const match = block.match(regex);
+    return match?.[1]?.trim() ?? "";
+  };
+
+  const temIbsCbs = ibsCbsBlock.length > 0 || gIbsCbsBlock.length > 0;
+
+  // Campos do grupo IBSCBS na DPS
+  const cstIbsCbs = getTagFrom(gIbsCbsBlock || ibsCbsBlock, "CST") || getTagFrom(xml, "cstIBSCBS") || "";
+  const cIndOp = getTagFrom(ibsCbsBlock, "cIndOp") || getTag("cIndOp") || "";
+  const finNFSeVal = getTagFrom(ibsCbsBlock, "finNFSe") || getTag("finNFSe") || "";
+  const indZfmalcVal = getTagFrom(ibsCbsBlock, "indZFMALC") || getTag("indZFMALC") || "";
+
+  // Base de calculo e aliquotas
+  const vBcIbsCbs = getTagFrom(gIbsCbsBlock || totTribBlock, "vBC") || "";
+  const aliqIbsUf = getTagFrom(totTribBlock || gIbsCbsBlock, "pAliqEfetRegIBSUF") || getTagFrom(xml, "pAliqEfetRegIBSUF") || "";
+  const aliqIbsMun = getTagFrom(totTribBlock || gIbsCbsBlock, "pAliqEfetRegIBSMun") || getTagFrom(xml, "pAliqEfetRegIBSMun") || "";
+  const aliqCbs = getTagFrom(totTribBlock || gIbsCbsBlock, "pAliqEfetRegCBS") || getTagFrom(xml, "pAliqEfetRegCBS") || "";
+
+  // Valores calculados
+  const vIbsUf = getTagFrom(totTribBlock, "vTribRegIBSUF") || getTagFrom(xml, "vTribRegIBSUF") || "";
+  const vIbsMun = getTagFrom(totTribBlock, "vTribRegIBSMun") || getTagFrom(xml, "vTribRegIBSMun") || "";
+  const vCbs = getTagFrom(totTribBlock, "vTribRegCBS") || getTagFrom(xml, "vTribRegCBS") || "";
+
+  // Total tributos IBS+CBS
+  let vTotTribIbsCbs = "";
+  if (vIbsUf || vIbsMun || vCbs) {
+    const total = (parseFloat(vIbsUf || "0") + parseFloat(vIbsMun || "0") + parseFloat(vCbs || "0"));
+    vTotTribIbsCbs = total > 0 ? total.toFixed(2) : "";
+  }
+
+  // Diferimento
+  const pDifUf = getTagFrom(gDifBlock, "pDifUF") || getTagFrom(xml, "pDifUF") || "";
+  const pDifMun = getTagFrom(gDifBlock, "pDifMun") || getTagFrom(xml, "pDifMun") || "";
+  const pDifCbs = getTagFrom(gDifBlock, "pDifCBS") || getTagFrom(xml, "pDifCBS") || "";
+
+  // PIS/COFINS
+  const vPis = getTagFrom(pisCofinsBlock, "vPIS") || getTag("vPIS") || getTag("vPis") || "";
+  const vCofins = getTagFrom(pisCofinsBlock, "vCOFINS") || getTag("vCOFINS") || getTag("vCofins") || "";
+  const cstPisCofins = getTagFrom(pisCofinsBlock, "CST") || "";
+
   return {
     numeroNota: getTag("nNF") || getTag("nNFSe") || "",
     serie: getTag("serie") || "",
@@ -312,6 +383,33 @@ export function parseNfseXml(xml: string, clienteCnpj: string): Partial<ParsedNf
     municipioPrestacao: getTag("cMun") || "",
     ufPrestacao: getTag("UF") || "",
     direcao,
+    // Campos IBS/CBS
+    ...(temIbsCbs ? {
+      temIbsCbs: true,
+      cstIbsCbs: cstIbsCbs || undefined,
+      cIndOp: cIndOp || undefined,
+      finNFSe: finNFSeVal || undefined,
+      vBcIbsCbs: vBcIbsCbs || undefined,
+      aliqIbsUf: aliqIbsUf || undefined,
+      aliqIbsMun: aliqIbsMun || undefined,
+      aliqCbs: aliqCbs || undefined,
+      vIbsUf: vIbsUf || undefined,
+      vIbsMun: vIbsMun || undefined,
+      vCbs: vCbs || undefined,
+      vTotTribIbsCbs: vTotTribIbsCbs || undefined,
+      indZfmalc: indZfmalcVal ? parseInt(indZfmalcVal) : undefined,
+      vPis: vPis || undefined,
+      vCofins: vCofins || undefined,
+      cstPisCofins: cstPisCofins || undefined,
+      pDifUf: pDifUf || undefined,
+      pDifMun: pDifMun || undefined,
+      pDifCbs: pDifCbs || undefined,
+    } : {
+      temIbsCbs: false,
+      // Ainda extrair PIS/COFINS mesmo sem IBSCBS (notas antigas)
+      vPis: vPis || undefined,
+      vCofins: vCofins || undefined,
+    }),
   };
 }
 

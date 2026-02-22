@@ -457,9 +457,12 @@ export async function processClienteDownload(
     const etapaFinal = baixarPdf && pdfPend.length > 0 
       ? `Concluído (${pdfPend.length} PDF(s) não baixado(s))${skipMsg}` 
       : `Concluído${skipMsg}`;
+    // Usar contagem REAL do banco para garantir que mostradores estejam corretos
+    const contagemReal = await db.getContagemReaisCliente(cliente.id, contabId);
+    const errosPdfReal = contagemReal.totalXml - contagemReal.totalPdf;
     await db.updateDownloadLog(logId!, {
       status: "concluido", totalNotas: totalDocs, notasNovas: notasNovas - jaExistem,
-      totalXml: contXml + jaExistem, totalPdf: contPdf, errosPdf: contErrosPdf,
+      totalXml: contagemReal.totalXml, totalPdf: contagemReal.totalPdf, errosPdf: errosPdfReal > 0 ? errosPdfReal : 0,
       ultimoNsu: totalDocs > 0 ? Math.max(...docs.map(d => d.nsu)) : lastNsu,
       finalizadoEm: new Date(), progresso: totalDocs, totalEsperado: totalDocs,
       etapa: etapaFinal,
@@ -1681,6 +1684,8 @@ export const appRouter = router({
               }
             } else {
               clienteId = cliente.id;
+              // Desativar certificados antigos do mesmo CNPJ para evitar duplicidade
+              await db.desativarCertificadosCliente(clienteId);
             }
 
             const encryptedData = encrypt(cert.fileData);
@@ -1787,6 +1792,7 @@ export const appRouter = router({
       .input(z.object({
         contabilidadeId: z.number().optional(), clienteId: z.number().optional(),
         status: z.string().optional(), direcao: z.string().optional(),
+        ibsCbs: z.string().optional(),
         dataInicio: z.date().optional(), dataFim: z.date().optional(),
         busca: z.string().optional(), limit: z.number().optional(), offset: z.number().optional(),
       }))
@@ -1795,6 +1801,7 @@ export const appRouter = router({
         const contabId = await getContabilidadeId(ctx.user, input.contabilidadeId);
         return db.getNotasByContabilidade(contabId, {
           clienteId: input.clienteId, status: input.status, direcao: input.direcao,
+          ibsCbs: input.ibsCbs,
           dataInicio: input.dataInicio, dataFim: input.dataFim,
           busca: input.busca, limit: input.limit, offset: input.offset,
         });
@@ -2077,9 +2084,12 @@ export const appRouter = router({
           const etapaFinal = baixarPdf && pdfPendentes.length > 0
             ? `Concluído (${pdfPendentes.length} PDF(s) não baixado(s))`
             : "Concluído";
+          // Usar contagem REAL do banco para garantir mostradores corretos
+          const contagemReal2 = await db.getContagemReaisCliente(input.clienteId, contabId);
+          const errosPdfReal2 = contagemReal2.totalXml - contagemReal2.totalPdf;
           await db.updateDownloadLog(logId, {
             status: "concluido", totalNotas: totalDocs, notasNovas,
-            totalXml: contXml, totalPdf: contPdf, errosPdf: contErrosPdf,
+            totalXml: contagemReal2.totalXml, totalPdf: contagemReal2.totalPdf, errosPdf: errosPdfReal2 > 0 ? errosPdfReal2 : 0,
             ultimoNsu: totalDocs > 0 ? Math.max(...docs.map(d => d.nsu)) : lastNsu,
             finalizadoEm: new Date(), progresso: totalDocs, totalEsperado: totalDocs,
             etapa: etapaFinal,
@@ -3117,6 +3127,159 @@ export const appRouter = router({
         return { success: true, total: logsComErro.length, retomados: logsComErro.length, falhas: 0 };
       }),
 
+    // ═══════════════════════════════════════════════════════════════════
+    // RETOMAR SOMENTE PDFs: Re-tenta baixar PDFs (DANFSe) de notas que já têm XML
+    // ═══════════════════════════════════════════════════════════════════
+    retryPdfs: contabilidadeProcedure
+      .input(z.object({ contabilidadeId: z.number().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        checkPermissao(ctx.user, "fazerDownloads");
+        const contabId = await getContabilidadeId(ctx.user, input.contabilidadeId);
+
+        // Buscar todos os clientes da contabilidade
+        const clientes = await db.getClientesByContabilidade(contabId);
+        if (clientes.length === 0) {
+          return { success: true, totalPdfs: 0, message: "Nenhum cliente encontrado" };
+        }
+
+        // Contar total de PDFs pendentes
+        let totalPendentes = 0;
+        const clientesComPdfPendente: { clienteId: number; razaoSocial: string; cnpj: string; chaves: string[] }[] = [];
+        for (const cliente of clientes) {
+          const notasSemPdf = await db.getNotasSemPdf(cliente.id, contabId);
+          if (notasSemPdf.length > 0) {
+            totalPendentes += notasSemPdf.length;
+            clientesComPdfPendente.push({
+              clienteId: cliente.id,
+              razaoSocial: cliente.razaoSocial,
+              cnpj: cliente.cnpj,
+              chaves: notasSemPdf.map(n => n.chaveAcesso).filter(Boolean) as string[],
+            });
+          }
+        }
+
+        if (totalPendentes === 0) {
+          return { success: true, totalPdfs: 0, message: "Todos os PDFs já foram baixados" };
+        }
+
+        // Ler configuração de tentativas
+        const maxTentConfig = await db.getSetting("retry_pdfs_max_tentativas");
+        const maxTentativas = maxTentConfig ? parseInt(maxTentConfig) : 3;
+        const infinito = maxTentConfig === "infinito";
+
+        // Salvar status para o frontend acompanhar
+        await db.upsertSetting(`retry_pdfs_status_${contabId}`, JSON.stringify({
+          fase: "executando", total: totalPendentes, processados: 0, sucesso: 0, falhas: 0,
+          inicioEm: Date.now(),
+        }));
+
+        // Processar em background
+        (async () => {
+          let totalSucesso = 0;
+          let totalFalhas = 0;
+          let processados = 0;
+
+          for (const item of clientesComPdfPendente) {
+            // Verificar cancelamento
+            const cancelFlag = await db.getSetting(`retry_pdfs_cancel_${contabId}`);
+            if (cancelFlag === "true") {
+              await db.upsertSetting(`retry_pdfs_cancel_${contabId}`, "");
+              break;
+            }
+
+            try {
+              const { cert, vencido } = await db.getCertificadoAtivoValido(item.clienteId);
+              if (!cert || vencido) {
+                totalFalhas += item.chaves.length;
+                processados += item.chaves.length;
+                continue;
+              }
+              const certInfo = extractPfxCertAndKey(cert.pfxBase64, cert.senha);
+
+              for (const chave of item.chaves) {
+                // Verificar cancelamento
+                const cancelCheck = await db.getSetting(`retry_pdfs_cancel_${contabId}`);
+                if (cancelCheck === "true") break;
+
+                let sucesso = false;
+                const tentativasMax = infinito ? 999 : maxTentativas;
+                for (let tent = 1; tent <= tentativasMax; tent++) {
+                  try {
+                    const pdfBuffer = await fetchDanfsePdf(certInfo.cert, certInfo.key, chave);
+                    if (pdfBuffer) {
+                      const pdfKey = `danfse/${contabId}/${item.clienteId}/${chave}.pdf`;
+                      const result = await storagePut(pdfKey, pdfBuffer, "application/pdf");
+                      await db.updateNotaByChave(chave, item.clienteId, { danfsePdfUrl: result.url, danfsePdfKey: result.key });
+                      sucesso = true;
+                      break;
+                    }
+                  } catch (e) {
+                    // Aguardar antes de tentar novamente
+                    if (tent < tentativasMax) {
+                      await new Promise(r => setTimeout(r, 2000 * tent));
+                    }
+                  }
+                }
+
+                if (sucesso) totalSucesso++;
+                else totalFalhas++;
+                processados++;
+
+                // Atualizar status
+                await db.upsertSetting(`retry_pdfs_status_${contabId}`, JSON.stringify({
+                  fase: "executando", total: totalPendentes, processados, sucesso: totalSucesso, falhas: totalFalhas,
+                  empresa: item.razaoSocial, inicioEm: Date.now(),
+                }));
+              }
+            } catch (err: any) {
+              console.error(`[RetryPDFs] Erro cliente ${item.clienteId}:`, err.message);
+              totalFalhas += item.chaves.length;
+              processados += item.chaves.length;
+            }
+          }
+
+          // Finalizar
+          await db.upsertSetting(`retry_pdfs_status_${contabId}`, JSON.stringify({
+            fase: "concluido", total: totalPendentes, processados, sucesso: totalSucesso, falhas: totalFalhas,
+            finalizadoEm: Date.now(),
+          }));
+
+          // Limpar status após 30s
+          setTimeout(async () => {
+            await db.upsertSetting(`retry_pdfs_status_${contabId}`, "");
+          }, 30000);
+
+          // Atualizar os logs de download com os novos totais de PDF
+          const logs = await db.getDownloadLogsByContabilidade(contabId, 1000);
+          for (const log of logs) {
+            if (log.status === "concluido" && log.clienteId) {
+              const notasSemPdf = await db.getNotasSemPdf(log.clienteId, contabId);
+              // Se diminuiu o número de PDFs faltantes, atualizar o log
+              const errosPdfAtual = notasSemPdf.length;
+              if (errosPdfAtual !== (log.errosPdf ?? 0)) {
+                await db.updateDownloadLog(log.id, {
+                  errosPdf: errosPdfAtual,
+                  totalPdf: (log.totalXml ?? 0) - errosPdfAtual,
+                });
+              }
+            }
+          }
+
+          console.log(`[RetryPDFs] Concluído: ${totalSucesso} sucesso, ${totalFalhas} falhas de ${totalPendentes} total`);
+        })().catch(err => console.error('[RetryPDFs] Erro geral:', err.message));
+
+        return { success: true, totalPdfs: totalPendentes, empresas: clientesComPdfPendente.length };
+      }),
+
+    // Cancelar retomada de PDFs
+    cancelRetryPdfs: contabilidadeProcedure
+      .input(z.object({ contabilidadeId: z.number().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const contabId = await getContabilidadeId(ctx.user, input.contabilidadeId);
+        await db.upsertSetting(`retry_pdfs_cancel_${contabId}`, "true");
+        return { success: true };
+      }),
+
     // Limpar histórico de downloads (concluídos, erros, cancelados)
     clearHistory: contabilidadeProcedure
       .input(z.object({ contabilidadeId: z.number().optional() }))
@@ -3819,6 +3982,25 @@ export const appRouter = router({
             descricaoServico: nota.descricaoServico,
             municipioPrestacao: nota.municipioPrestacao,
             chaveAcesso: nota.chaveAcesso,
+            // Campos IBS/CBS (Reforma Tributaria)
+            temIbsCbs: nota.temIbsCbs,
+            cstIbsCbs: nota.cstIbsCbs,
+            cIndOp: nota.cIndOp,
+            finNFSe: nota.finNFSe,
+            vBcIbsCbs: nota.vBcIbsCbs,
+            aliqIbsUf: nota.aliqIbsUf,
+            aliqIbsMun: nota.aliqIbsMun,
+            aliqCbs: nota.aliqCbs,
+            vIbsUf: nota.vIbsUf,
+            vIbsMun: nota.vIbsMun,
+            vCbs: nota.vCbs,
+            vTotTribIbsCbs: nota.vTotTribIbsCbs,
+            vPis: nota.vPis,
+            vCofins: nota.vCofins,
+            cstPisCofins: nota.cstPisCofins,
+            pDifUf: nota.pDifUf,
+            pDifMun: nota.pDifMun,
+            pDifCbs: nota.pDifCbs,
             // Dados completos do XML
             xml: xmlCompleto,
           };
@@ -4195,6 +4377,57 @@ export const appRouter = router({
         return inativo;
       }
     }),
+    // Status da retomada de PDFs
+    getRetryPdfsStatus: contabilidadeProcedure.query(async ({ ctx }) => {
+      const contabId = await getContabilidadeId(ctx.user);
+      const inativo = { ativa: false, fase: null, total: 0, processados: 0, sucesso: 0, falhas: 0, empresa: null, inicioEm: null, finalizadoEm: null };
+      const valor = await db.getSetting(`retry_pdfs_status_${contabId}`);
+      if (!valor) return inativo;
+      try {
+        const data = JSON.parse(valor);
+        return { ativa: true, ...data };
+      } catch {
+        return inativo;
+      }
+    }),
+    // Configuração de retomada de PDFs
+    getRetryPdfsConfig: contabilidadeProcedure.query(async () => {
+      const maxTent = await db.getSetting("retry_pdfs_max_tentativas");
+      const autoRetomada = await db.getSetting("retry_pdfs_auto");
+      const tempoEspera = await db.getSetting("retry_pdfs_tempo_espera");
+      return {
+        maxTentativas: maxTent || "3",
+        autoRetomada: autoRetomada === "true",
+        tempoEspera: tempoEspera || "00:05:00",
+      };
+    }),
+    setRetryPdfsConfig: contabilidadeProcedure
+      .input(z.object({
+        maxTentativas: z.string(), // "3", "5", "10", "infinito"
+        autoRetomada: z.boolean(),
+        tempoEspera: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.upsertSetting("retry_pdfs_max_tentativas", input.maxTentativas);
+        await db.upsertSetting("retry_pdfs_auto", input.autoRetomada ? "true" : "false");
+        if (input.tempoEspera) {
+          await db.upsertSetting("retry_pdfs_tempo_espera", input.tempoEspera);
+        }
+        return { success: true };
+      }),
+    // Contar PDFs pendentes (sem PDF baixado)
+    countPdfsPendentes: contabilidadeProcedure
+      .input(z.object({ contabilidadeId: z.number().optional() }))
+      .query(async ({ ctx, input }) => {
+        const contabId = await getContabilidadeId(ctx.user, input.contabilidadeId);
+        const clientes = await db.getClientesByContabilidade(contabId);
+        let total = 0;
+        for (const cliente of clientes) {
+          const notasSemPdf = await db.getNotasSemPdf(cliente.id, contabId);
+          total += notasSemPdf.length;
+        }
+        return { total };
+      }),
     get: publicProcedure.input(z.object({ chave: z.string() })).query(async ({ input }) => {
       const valor = await db.getSetting(input.chave);
       return { chave: input.chave, valor };
